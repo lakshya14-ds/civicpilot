@@ -1,0 +1,58 @@
+{
+  "name": "CivicPilot - Authorized Government Sync",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "civicpilot-government-sync", "responseMode": "responseNode", "options": {} },
+      "id": "gov-webhook",
+      "name": "Government Sync Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 300],
+      "webhookId": "civicpilot-government-sync"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json; const expected = $env.N8N_WEBHOOK_SECRET; const provided = input.headers?.['x-webhook-secret']; if (!expected || !provided || provided !== expected) throw new Error('Unauthorized government sync request'); const body = input.body || {}; if (!body.complaint_id || !['submit','refresh'].includes(body.operation || 'submit')) throw new Error('Invalid government sync payload'); return [{json:{complaint_id:body.complaint_id, operation:body.operation || 'submit'}}];"
+      },
+      "id": "gov-validate",
+      "name": "Authorize and Validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.CIVICPILOT_APP_URL || 'http://localhost:3000') + '/api/internal/government-sync' }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "x-webhook-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "gov-sync",
+      "name": "Submit or Refresh Official Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify($json) }}", "options": {} },
+      "id": "gov-respond",
+      "name": "Return Sync Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [880, 300]
+    }
+  ],
+  "connections": {
+    "Government Sync Request": { "main": [[{ "node": "Authorize and Validate", "type": "main", "index": 0 }]] },
+    "Authorize and Validate": { "main": [[{ "node": "Submit or Refresh Official Request", "type": "main", "index": 0 }]] },
+    "Submit or Refresh Official Request": { "main": [[{ "node": "Return Sync Result", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

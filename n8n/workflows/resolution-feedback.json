@@ -1,0 +1,87 @@
+{
+  "name": "CivicPilot - Resolution and Citizen Feedback Loop",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "civicpilot-feedback",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook-feedback",
+      "name": "Feedback Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "civicpilot-feedback"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/api/feedback' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-webhook-secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET || $env.WEBHOOK_SHARED_SECRET || '' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"complaint_id\": $json.body.complaint_id,\n  \"rating\": $json.body.rating,\n  \"feedback\": $json.body.feedback,\n  \"feedback_token\": $json.body.feedback_token || '',\n  \"problem_persists\": $json.body.problem_persists || false\n}"
+      },
+      "id": "node-forward-feedback",
+      "name": "Forward to CivicPilot API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"data\": $json,\n  \"message\": $json.reopened ? \"Ticket reopened due to persistent complaint notice.\" : \"Citizen feedback verified and recorded successfully.\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-feedback",
+      "name": "Respond to Feedback Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [760, 300]
+    }
+  ],
+  "connections": {
+    "Feedback Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Forward to CivicPilot API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forward to CivicPilot API": {
+      "main": [
+        [
+          {
+            "node": "Respond to Feedback Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

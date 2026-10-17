@@ -1,0 +1,138 @@
+{
+  "name": "CivicPilot - SLA Monitoring and Escalation Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-sla",
+      "name": "Schedule Trigger (Every 15m)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [220, 240]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "civicpilot-sla",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "node-manual-webhook-sla",
+      "name": "Manual Watchdog Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 420],
+      "webhookId": "civicpilot-sla"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/api/escalate' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-watchdog-secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET || $env.WEBHOOK_SHARED_SECRET || $env.CRON_SECRET || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-call-escalate-api",
+      "name": "Call CivicPilot Escalate API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 320]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.escalated_count }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "node-check-new-escalations",
+      "name": "Any New Escalations?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 320]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nreturn [{\n  json: {\n    summary: `SLA Scan Completed: ${data.escalated_count} overdue tickets escalated out of ${data.checked_count} scanned.`,\n    escalated: data.escalated_tickets,\n    timestamp: data.timestamp\n  }\n}];"
+      },
+      "id": "node-log-escalations",
+      "name": "Log Escalation Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 240]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (Every 15m)": {
+      "main": [
+        [
+          {
+            "node": "Call CivicPilot Escalate API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Watchdog Trigger": {
+      "main": [
+        [
+          {
+            "node": "Call CivicPilot Escalate API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call CivicPilot Escalate API": {
+      "main": [
+        [
+          {
+            "node": "Any New Escalations?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any New Escalations?": {
+      "main": [
+        [
+          {
+            "node": "Log Escalation Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

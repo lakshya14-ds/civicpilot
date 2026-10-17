@@ -1,0 +1,75 @@
+{
+  "name": "CivicPilot - WhatsApp Citizen Intake",
+  "nodes": [
+    {
+      "parameters": { "updates": ["messages"] },
+      "id": "wa-trigger",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json; const message = raw.messages?.[0] || raw.entry?.[0]?.changes?.[0]?.value?.messages?.[0]; if (!message?.id || !message?.from) return []; return [{json:{message}}];"
+      },
+      "id": "wa-normalize",
+      "name": "Normalize Incoming Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.CIVICPILOT_APP_URL || 'http://localhost:3000') + '/api/internal/whatsapp-intake' }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "x-webhook-secret", "value": "={{ $env.N8N_WEBHOOK_SECRET }}" }
+        ] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "wa-intake",
+      "name": "Clarify and Register Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json; if (result.action !== 'reply' || !result.to || !result.text) return []; return [{json:{to:result.to.replace(/^\\+/,''), text:result.text, ticket_number:result.ticket_number || null}}];"
+      },
+      "id": "wa-reply-check",
+      "name": "Prepare Citizen Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $env.WHATSAPP_PHONE_NUMBER_ID }}",
+        "recipientPhoneNumber": "={{ $json.to }}",
+        "textBody": "={{ $json.text }}",
+        "additionalFields": {},
+        "requestOptions": {}
+      },
+      "id": "wa-send",
+      "name": "Send Reply to Citizen",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1100, 300]
+    }
+  ],
+  "connections": {
+    "WhatsApp Trigger": { "main": [[{ "node": "Normalize Incoming Message", "type": "main", "index": 0 }]] },
+    "Normalize Incoming Message": { "main": [[{ "node": "Clarify and Register Report", "type": "main", "index": 0 }]] },
+    "Clarify and Register Report": { "main": [[{ "node": "Prepare Citizen Reply", "type": "main", "index": 0 }]] },
+    "Prepare Citizen Reply": { "main": [[{ "node": "Send Reply to Citizen", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

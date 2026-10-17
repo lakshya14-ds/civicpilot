@@ -1,0 +1,626 @@
+'use client';
+
+import React, { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import {
+  ArrowLeft,
+  Clock,
+  Layers,
+  MapPin,
+  CheckCircle2,
+  AlertTriangle,
+  Building2,
+  Shield,
+  Sparkles,
+  RefreshCw,
+  Star,
+  History,
+} from 'lucide-react';
+import { StatusBadge, PriorityBadge } from '@/components/Badge';
+import { Complaint, ComplaintEvent, AiDecision, Department } from '@/types';
+import { CATEGORY_LABELS } from '@/lib/constants';
+
+function TicketDetailsContent() {
+  const params = useParams();
+  const ticketId = params.id as string;
+
+  const [complaint, setComplaint] = useState<Complaint | null>(null);
+  const [canonicalTicket, setCanonicalTicket] = useState<Complaint | null>(null);
+  const [events, setEvents] = useState<ComplaintEvent[]>([]);
+  const [aiDecisions, setAiDecisions] = useState<AiDecision[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Status update modal / controls
+  const [updating, setUpdating] = useState(false);
+  const [newStatus, setNewStatus] = useState<string>('');
+  const [resolutionNotes, setResolutionNotes] = useState('');
+  const [resolutionPhoto, setResolutionPhoto] = useState<File | null>(null);
+  const [photoDisplayUrl, setPhotoDisplayUrl] = useState<string | null>(null);
+  const [resolutionDisplayUrl, setResolutionDisplayUrl] = useState<string | null>(null);
+  const [selectedDeptId, setSelectedDeptId] = useState('');
+
+  // Citizen feedback widget
+  const [rating, setRating] = useState(5);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [problemPersists, setProblemPersists] = useState(false);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [feedbackToken, setFeedbackToken] = useState<string | null>(null);
+  const [staffSecret, setStaffSecret] = useState('');
+
+  const fetchTicketDetails = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const savedStaffSecret = sessionStorage.getItem('civicpilot:staff-secret') || '';
+      const res = await fetch(`/api/complaints/${ticketId}`, {
+        headers: savedStaffSecret ? { 'x-reviewer-secret': savedStaffSecret } : {},
+      });
+      if (!res.ok) throw new Error('Ticket not found');
+      const data = await res.json();
+
+      setComplaint(data.complaint);
+      setCanonicalTicket(data.canonical_ticket || null);
+      setEvents(data.events || []);
+      setAiDecisions(data.ai_decisions || []);
+      setPhotoDisplayUrl(data.media_urls?.report || null);
+      setResolutionDisplayUrl(data.media_urls?.resolution || null);
+      setNewStatus(data.complaint.status);
+      setSelectedDeptId(data.complaint.department_id || '');
+      setFeedbackToken(sessionStorage.getItem(`civicpilot:feedback:${data.complaint.id}`));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error fetching ticket details');
+    } finally {
+      setLoading(false);
+    }
+  }, [ticketId]);
+
+  useEffect(() => {
+    fetch('/api/departments')
+      .then((r) => r.json())
+      .then((d) => setDepartments(d || []))
+      .catch(console.error);
+
+    fetchTicketDetails();
+  }, [fetchTicketDetails]);
+
+  const handleUpdateStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!complaint) return;
+
+    try {
+      setUpdating(true);
+      let resolutionReference: string | undefined;
+      if (resolutionPhoto) {
+        const upload = new FormData();
+        upload.set('file', resolutionPhoto);
+        const uploaded = await fetch('/api/media', { method: 'POST', body: upload });
+        const data = await uploaded.json();
+        if (!uploaded.ok || !data.reference) throw new Error(data.error || 'Resolution photo upload failed');
+        resolutionReference = data.reference;
+      }
+      const res = await fetch(`/api/complaints/${complaint.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-reviewer-secret': staffSecret || sessionStorage.getItem('civicpilot:staff-secret') || '',
+          'x-demo-patch': 'civicpilot-demo-confirm',
+        },
+        body: JSON.stringify({
+          status: newStatus,
+          resolution_notes: resolutionNotes.trim() || undefined,
+          resolution_evidence_url: resolutionReference,
+          department_id: selectedDeptId || undefined,
+          actor: 'Municipal Operations Staff',
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to update ticket status');
+      setResolutionPhoto(null);
+      await fetchTicketDetails();
+      window.dispatchEvent(new CustomEvent('civicpilot:refresh'));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Error updating status');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!complaint) return;
+
+    try {
+      setFeedbackSubmitting(true);
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-feedback-token': feedbackToken || '',
+        },
+        body: JSON.stringify({
+          complaint_id: complaint.id,
+          rating,
+          feedback: feedbackText.trim(),
+          problem_persists: problemPersists,
+          feedback_token: feedbackToken,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to submit feedback');
+
+      setFeedbackMessage(
+        data.reopened
+          ? 'Ticket reopened: Low rating and persistent complaint flag automatically alerted department.'
+          : 'Thank you! Citizen satisfaction feedback recorded and closure verified.'
+      );
+      await fetchTicketDetails();
+      window.dispatchEvent(new CustomEvent('civicpilot:refresh'));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Feedback error');
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-20 flex flex-col items-center justify-center">
+        <RefreshCw className="w-8 h-8 animate-spin text-teal-600 mb-2" />
+        <p className="text-xs text-slate-500">Loading complaint docket...</p>
+      </div>
+    );
+  }
+
+  if (error || !complaint) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+        <h2 className="text-xl font-bold text-slate-900">Complaint Not Found</h2>
+        <p className="text-sm text-slate-500 mt-1">{error || 'No record exists with this ID.'}</p>
+        <Link
+          href="/complaints"
+          className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Complaints Table
+        </Link>
+      </div>
+    );
+  }
+
+  const isOverdue =
+    (complaint.status !== 'resolved' && complaint.status !== 'closed' && complaint.status !== 'rejected') &&
+    (new Date(complaint.sla_due_at).getTime() < Date.now() || complaint.sla_breached);
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn space-y-6">
+      {/* Top Breadcrumb & Ticket Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <Link
+            href="/complaints"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 mb-2"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to Complaints
+          </Link>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-black font-mono text-slate-900 tracking-tight">
+              {complaint.ticket_number}
+            </h1>
+            <StatusBadge status={complaint.status} />
+            <PriorityBadge priority={complaint.priority_label} />
+          </div>
+        </div>
+
+        {/* SLA Deadline Pill */}
+        <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center gap-3 text-xs">
+          <Clock className={`w-5 h-5 ${isOverdue ? 'text-rose-600 animate-pulse' : 'text-slate-400'}`} />
+          <div>
+            <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+              Resolution SLA Target
+            </div>
+            <div className={`font-semibold ${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-800'}`}>
+              {new Date(complaint.sla_due_at).toLocaleString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+              {isOverdue && ' (BREACHED)'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Linked Duplicate Banner if applicable */}
+      {complaint.duplicate_of && canonicalTicket && (
+        <div className="p-4 bg-purple-50 border border-purple-200 rounded-2xl flex items-center justify-between text-xs text-purple-900">
+          <div className="flex items-center gap-2.5">
+            <Layers className="w-5 h-5 text-purple-600 shrink-0" />
+            <div>
+              <span className="font-bold">Suppressed Duplicate:</span> This report has been linked to canonical incident{' '}
+              <Link href={`/complaints/${canonicalTicket.id}`} className="font-mono font-black underline">
+                {canonicalTicket.ticket_number}
+              </Link>
+              . Combined citizen count: {(canonicalTicket.duplicate_count || 0) + 1} reports.
+            </div>
+          </div>
+          <Link
+            href={`/complaints/${canonicalTicket.id}`}
+            className="px-3 py-1 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            View Canonical
+          </Link>
+        </div>
+      )}
+
+      {/* Main Grid: Left Column Details & Right Column Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column (2 Cols wide on desktop) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Complaint Description & AI Analysis Box */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                Citizen Submitted Report
+              </span>
+              <p className="text-slate-800 text-sm leading-relaxed whitespace-pre-wrap p-4 bg-slate-50 rounded-xl border border-slate-200">
+                {complaint.description}
+              </p>
+            </div>
+
+            {/* AI Summary and Reasoning */}
+            <div className="p-4 bg-teal-50/60 rounded-xl border border-teal-200 text-xs space-y-2">
+              <div className="flex items-center gap-1.5 text-teal-800 font-bold">
+                <Sparkles className="w-4 h-4 text-teal-600" />
+                AI Triage Classification & Reasoning
+              </div>
+              <p className="text-teal-950 font-medium">
+                <span className="font-bold">Summary: </span>
+                {complaint.ai_summary}
+              </p>
+              {aiDecisions[0]?.reasoning_summary && (
+                <p className="text-slate-600 text-[11px] pt-1 border-t border-teal-200/60">
+                  <span className="font-semibold text-slate-700">Model Rationale: </span>
+                  {aiDecisions[0].reasoning_summary}
+                </p>
+              )}
+            </div>
+
+            {/* Meta attributes: Location, Citizen, Language */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-400 block mb-1">Location</span>
+                <span className="font-medium text-slate-800 flex items-center gap-1 truncate">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  {complaint.location_text || 'Unspecified'}
+                </span>
+                {complaint.latitude && complaint.longitude && (
+                  <span className="text-[10px] text-teal-600 block mt-1 font-mono">
+                    GPS: {complaint.latitude.toFixed(4)}, {complaint.longitude.toFixed(4)}
+                  </span>
+                )}
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-400 block mb-1">Citizen Contact</span>
+                <span className="font-medium text-slate-800 truncate block">
+                  {complaint.citizen_name || 'Anonymous citizen'}
+                </span>
+                <span className="text-[10px] text-slate-500 block truncate mt-0.5">
+                  {complaint.citizen_contact || 'No contact provided'}
+                </span>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-400 block mb-1">Assigned Department</span>
+                <span className="font-bold text-slate-900 block truncate">
+                  {complaint.department_name || 'Ombudsman'}
+                </span>
+                <span className="text-[10px] text-slate-500 block capitalize mt-0.5">
+                  Category: {CATEGORY_LABELS[complaint.category] || complaint.category}
+                </span>
+              </div>
+            </div>
+
+            {/* Photo evidence if URL provided */}
+            {(photoDisplayUrl || (complaint.image_url && !complaint.image_url.startsWith('evidence://') ? complaint.image_url : null)) && (
+              <div className="pt-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                  Attached Photo Evidence
+                </span>
+                <div className="relative rounded-xl overflow-hidden border border-slate-200 max-h-64">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photoDisplayUrl || complaint.image_url || ''}
+                    alt="Citizen uploaded civic complaint evidence"
+                    className="w-full object-cover max-h-64"
+                  />
+                </div>
+              </div>
+            )}
+            {complaint.image_url === null && !photoDisplayUrl && (
+              <p className="text-[11px] text-slate-500">Citizen photos are visible only to authorized staff.</p>
+            )}
+            {resolutionDisplayUrl && (
+              <div className="pt-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Officer completion photo</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={resolutionDisplayUrl} alt="Officer completion evidence" className="max-h-64 rounded-xl border border-slate-200 object-cover" />
+              </div>
+            )}
+          </div>
+
+          {/* Transparent Priority Calculation Formula Box */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-teal-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  Transparent Priority Calculation Breakdown
+                </h3>
+              </div>
+              <span className="text-xs font-mono font-bold px-2 py-0.5 bg-slate-100 rounded text-slate-800">
+                Total Score: {complaint.priority_score.toFixed(2)}
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              CivicPilot calculates priority deterministically to guarantee transparency and eliminate arbitrary bias:
+            </p>
+
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 font-mono text-xs space-y-1.5 text-slate-700">
+              <div className="flex justify-between">
+                <span>Base Severity Weight (Severity {complaint.severity} × 0.70):</span>
+                <span className="font-bold">{(complaint.severity * 0.7).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Duplicate Crowd Multiplier (Boost: {complaint.duplicate_count} reports):</span>
+                <span className="font-bold">+{(Math.min(1.0, complaint.duplicate_count * 0.25)).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>SLA Urgency Factor ({isOverdue ? 'Overdue breach active' : 'Normal window'}):</span>
+                <span className="font-bold">+{isOverdue ? '0.50' : '0.00'}</span>
+              </div>
+              <div className="pt-2 border-t border-slate-200 flex justify-between font-bold text-slate-900">
+                <span>Final Operational Score:</span>
+                <span className="text-teal-700">{complaint.priority_score.toFixed(2)} ({complaint.priority_label.toUpperCase()})</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Visual Timeline of Events & Audit Trail */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-slate-600" />
+                <h3 className="text-sm font-bold text-slate-900">Complaint Lifecycle Audit Trail</h3>
+              </div>
+              <span className="text-xs text-slate-400">{events.length} recorded events</span>
+            </div>
+
+            <div className="relative pl-6 space-y-4 border-l-2 border-teal-500/30">
+              {events.map((evt) => (
+                <div key={evt.id} className="relative text-xs">
+                  <div className="absolute -left-[31px] top-0.5 w-3.5 h-3.5 rounded-full bg-white border-2 border-teal-600" />
+                  <div className="flex items-center justify-between text-slate-400 text-[11px] mb-0.5">
+                    <span className="font-semibold text-slate-700">{evt.actor}</span>
+                    <span>
+                      {new Date(evt.created_at).toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                  <p className="text-slate-800 font-medium">{evt.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Municipal Operations Controls & Citizen Feedback */}
+        <div className="space-y-6">
+          {/* Status Update / Operational Resolution Box */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-teal-600" />
+              Department Operational Controls
+            </h3>
+
+            <input
+              type="password"
+              autoComplete="off"
+              value={staffSecret}
+              onChange={(event) => {
+                setStaffSecret(event.target.value);
+                sessionStorage.setItem('civicpilot:staff-secret', event.target.value);
+              }}
+              placeholder="Staff access key"
+              aria-label="Staff access key"
+              className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs text-slate-800"
+            />
+            <button type="button" onClick={fetchTicketDetails} className="text-xs font-semibold text-teal-700">Load staff view</button>
+
+            <form onSubmit={handleUpdateStatus} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Update Ticket Status
+                </label>
+                <select
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 font-medium"
+                >
+                  <option value="open">Open</option>
+                  <option value="in_progress">In Progress (Field Team Dispatched)</option>
+                  <option value="resolved">Resolved (Work Completed)</option>
+                  <option value="closed">Closed (Verified)</option>
+                  <option value="rejected">Rejected (Out of Municipal Scope)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Reassign Department
+                </label>
+                <select
+                  value={selectedDeptId}
+                  onChange={(e) => setSelectedDeptId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800"
+                >
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Resolution Notes / Field Report
+                </label>
+                <textarea
+                  rows={3}
+                  value={resolutionNotes}
+                  onChange={(e) => setResolutionNotes(e.target.value)}
+                  placeholder="e.g. Asphalt patch applied and roller compacted. Manhole cover replaced..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Completion photo (optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => setResolutionPhoto(e.target.files?.[0] || null)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={updating}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+              >
+                {updating ? 'Saving Update...' : 'Commit Status Update'}
+              </button>
+            </form>
+          </div>
+
+          {/* Citizen Verification & Feedback Box */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+              Citizen Resolution Feedback
+            </h3>
+
+            {complaint.citizen_rating ? (
+              <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  Citizen Feedback Recorded ({complaint.citizen_rating} / 5 Stars)
+                </div>
+                <p className="italic text-slate-700">
+                  &ldquo;{complaint.citizen_feedback || 'No comments provided'}&rdquo;
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmitFeedback} className="space-y-3 text-xs">
+                {feedbackMessage && (
+                  <div className="p-3 bg-teal-50 border border-teal-200 text-teal-800 rounded-xl font-medium">
+                    {feedbackMessage}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                    Satisfaction Rating
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setRating(star)}
+                        className={`p-1.5 rounded-lg border ${
+                          rating >= star
+                            ? 'bg-amber-50 border-amber-300 text-amber-500'
+                            : 'border-slate-200 text-slate-300'
+                        }`}
+                      >
+                        <Star className="w-5 h-5 fill-current" />
+                      </button>
+                    ))}
+                    <span className="text-xs font-bold text-slate-700 ml-2">{rating} / 5</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Citizen Feedback Comments
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value)}
+                    placeholder="Was the resolution satisfactory? Does the issue persist?"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="problemPersists"
+                    checked={problemPersists}
+                    onChange={(e) => setProblemPersists(e.target.checked)}
+                    className="rounded text-rose-600"
+                  />
+                  <label htmlFor="problemPersists" className="text-[11px] text-slate-700 font-medium">
+                    Issue still persists (automatically re-opens ticket)
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={feedbackSubmitting}
+                  className="w-full py-2 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                >
+                  {feedbackSubmitting ? 'Submitting...' : 'Submit Citizen Feedback'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function TicketDetailsPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="max-w-7xl mx-auto px-4 py-20 flex flex-col items-center justify-center">
+          <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mb-2" />
+          <span className="text-xs text-slate-500">Loading complaint docket...</span>
+        </div>
+      }
+    >
+      <TicketDetailsContent />
+    </React.Suspense>
+  );
+}

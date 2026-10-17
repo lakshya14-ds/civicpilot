@@ -1,0 +1,157 @@
+{
+  "name": "CivicPilot - Human Review Action Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "civicpilot-review",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook-review",
+      "name": "Review Action Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "civicpilot-review"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate Reviewer Security Credentials (Strict Server Environment Secret)\nconst body = $input.first().json.body || $input.first().json;\nconst headers = $input.first().json.headers || {};\nconst secretKey = headers['x-reviewer-secret'] || headers['X-Reviewer-Secret'] || body.reviewer_secret;\nconst requiredSecret = $env.REVIEWER_SECRET_KEY;\n\nif (!requiredSecret) {\n  throw new Error('Server environment misconfiguration: REVIEWER_SECRET_KEY is not defined in n8n.');\n}\n\nif (!secretKey || secretKey !== requiredSecret) {\n  return [{\n    json: {\n      authorized: false,\n      error: 'Unauthorized: Invalid reviewer authentication secret.'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    authorized: true,\n    complaint_id: body.complaint_id,\n    action: body.action,\n    reviewer_id: body.reviewer_id,\n    reviewer_secret: secretKey,\n    reviewer_notes: body.reviewer_notes || '',\n    updated_values: body.updated_values || {}\n  }\n}];"
+      },
+      "id": "node-auth-check",
+      "name": "Reviewer Authorization Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.authorized }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node-if-authorized",
+      "name": "IF Authorized",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/api/review' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-reviewer-secret",
+              "value": "={{ $json.reviewer_secret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "node-forward-to-api",
+      "name": "Update Ticket in Database via API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-success-response",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1180, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"error\": \"Unauthorized: Action rejected due to invalid reviewer credentials.\"\n}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "node-unauth-response",
+      "name": "Respond Unauthorized",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [940, 400]
+    }
+  ],
+  "connections": {
+    "Review Action Webhook": {
+      "main": [
+        [
+          {
+            "node": "Reviewer Authorization Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reviewer Authorization Check": {
+      "main": [
+        [
+          {
+            "node": "IF Authorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Authorized": {
+      "main": [
+        [
+          {
+            "node": "Update Ticket in Database via API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Ticket in Database via API": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "name": "CivicPilot - Notification Dispatch Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "civicpilot-notify",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "node-webhook-notify",
+      "name": "Notification Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "civicpilot-notify"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate Webhook Secret (Fail Closed)\nconst headers = $input.first().json.headers || {};\nconst configuredSecret = $env.N8N_WEBHOOK_SECRET || $env.WEBHOOK_SHARED_SECRET;\nconst providedSecret = headers['x-webhook-secret'] || headers['X-Webhook-Secret'];\n\nif (!configuredSecret) {\n  throw new Error('Server environment misconfiguration: N8N_WEBHOOK_SECRET is not configured in n8n.');\n}\n\nif (!providedSecret || providedSecret !== configuredSecret) {\n  throw new Error('Unauthorized: Invalid or missing x-webhook-secret');\n}\n\nconst body = $input.first().json.body || $input.first().json;\nreturn [{\n  json: {\n    channel: body.channel,\n    recipient: body.recipient,\n    subject: body.subject || 'CivicPilot Notification',\n    body: body.body,\n    complaint_id: body.complaint_id\n  }\n}];"
+      },
+      "id": "node-validate-notify",
+      "name": "Validate & Extract Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.channel }}",
+                    "rightValue": "telegram",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.channel }}",
+                    "rightValue": "email",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        }
+      },
+      "id": "node-switch-channel",
+      "name": "Switch Channel",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"{{ $env.TELEGRAM_OFFICER_CHAT_ID || $json.recipient }}\",\n  \"text\": \"🏛️ *CIVICPILOT NOTIFICATION*\\n*\" + $json.subject + \"*\\n\\n\" + $json.body,\n  \"parse_mode\": \"Markdown\"\n}"
+      },
+      "id": "node-telegram-send",
+      "name": "Send Telegram Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 200],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Truthful Notification Logging: Simulated dispatch when SMTP credentials are unconfigured\nconst item = $input.first().json;\nreturn [{\n  json: {\n    channel: 'email',\n    recipient: item.recipient,\n    subject: item.subject,\n    status: 'simulated',\n    delivered_at: null,\n    failure_reason: 'Simulated email dispatch in development mode.'\n  }\n}];"
+      },
+      "id": "node-email-mock",
+      "name": "Log Simulated Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 400]
+    }
+  ],
+  "connections": {
+    "Notification Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate & Extract Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Extract Notification": {
+      "main": [
+        [
+          {
+            "node": "Switch Channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Channel": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Simulated Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

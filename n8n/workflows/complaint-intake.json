@@ -1,0 +1,173 @@
+{
+  "name": "CivicPilot - Complaint Intake and Triage",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "civicpilot-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook-intake",
+      "name": "Webhook Intake",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "civicpilot-intake"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Fail closed on Webhook Secret & Normalize Input\nconst headers = $input.first().json.headers || {};\nconst configuredSecret = $env.N8N_WEBHOOK_SECRET || $env.WEBHOOK_SHARED_SECRET;\nconst providedSecret = headers['x-webhook-secret'] || headers['X-Webhook-Secret'];\n\nif (!configuredSecret) {\n  throw new Error('Server environment misconfiguration: N8N_WEBHOOK_SECRET is not configured in n8n.');\n}\n\nif (!providedSecret || providedSecret !== configuredSecret) {\n  throw new Error('Unauthorized: Invalid or missing x-webhook-secret');\n}\n\nconst body = $input.first().json.body || $input.first().json;\nif (!body || !body.description || body.description.trim().length < 5) {\n  throw new Error('Complaint description must be at least 5 characters');\n}\nif (body.description.length > 5000) {\n  throw new Error('Complaint description cannot exceed 5000 characters');\n}\n\n// Mask basic phone & email before sending to AI\nconst maskedDesc = body.description\n  .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g, '[EMAIL_PROTECTED]')\n  .replace(/(\\+?\\d{1,3}[-.\\s]?)?(\\(?\\d{3}\\)?[-.\\s]?)?\\d{3}[-.\\s]?\\d{4}/g, '[PHONE_PROTECTED]');\n\nreturn [{\n  json: {\n    raw: body,\n    description: body.description,\n    masked_description: maskedDesc,\n    location_text: body.location_text || '',\n    latitude: body.latitude || null,\n    longitude: body.longitude || null,\n    source_channel: body.source_channel || 'n8n_webhook',\n    citizen_name: body.citizen_name || null,\n    citizen_contact: body.citizen_contact || null,\n    image_url: body.image_url || null,\n    language: body.language || 'en',\n    idempotency_key: body.idempotency_key || null\n  }\n}];"
+      },
+      "id": "node-normalize",
+      "name": "Validate & Sanitize PII",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GEMINI_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": \"You are CivicPilot's expert civic triage engine. Analyze this report:\\n\\nDescription: \" + $json.masked_description + \"\\nLocation: \" + $json.location_text + \"\\n\\nRespond with strictly JSON adhering to schema:\\n{\\n  \\\"category\\\": \\\"roads|sanitation|water_supply|electrical|drainage|public_safety|other\\\",\\n  \\\"subcategory\\\": \\\"string\\\",\\n  \\\"summary\\\": \\\"concise 1-sentence title\\\",\\n  \\\"severity\\\": 1-5,\\n  \\\"confidence\\\": 0.0-1.0,\\n  \\\"safety_flags\\\": [],\\n  \\\"reasoning_summary\\\": \\\"reasoning text\\\",\\n  \\\"requires_human_review\\\": false\\n}\"\n    }]\n  }],\n  \"generationConfig\": {\n    \"responseMimeType\": \"application/json\",\n    \"temperature\": 0.1\n  }\n}"
+      },
+      "id": "node-gemini-ai",
+      "name": "Gemini AI Structured Extraction",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse & Validate AI Output with Deterministic Safety Fallback\nconst item = $input.first().json;\nlet parsed = null;\n\ntry {\n  if (item.candidates && item.candidates[0]?.content?.parts[0]?.text) {\n    parsed = JSON.parse(item.candidates[0].content.parts[0].text);\n  }\n} catch (e) {\n  parsed = null;\n}\n\nconst normalizedInput = $('Validate & Sanitize PII').first().json;\n\n// Deterministic Fallback if AI fails or key is unset\nif (!parsed || !parsed.category) {\n  const desc = (normalizedInput.masked_description || '').toLowerCase();\n  let cat = 'other';\n  let sub = 'general';\n  let sev = 3;\n  if (desc.includes('pothole') || desc.includes('road')) { cat = 'roads'; sub = 'pothole'; sev = 4; }\n  else if (desc.includes('garbage') || desc.includes('waste')) { cat = 'sanitation'; sub = 'garbage'; sev = 3; }\n  else if (desc.includes('water') || desc.includes('pipe')) { cat = 'water_supply'; sub = 'pipeline_burst'; sev = 4; }\n  else if (desc.includes('light') || desc.includes('wire')) { cat = 'electrical'; sub = 'streetlights'; sev = 4; }\n  \n  parsed = {\n    category: cat,\n    subcategory: sub,\n    summary: desc.slice(0, 80),\n    severity: sev,\n    confidence: 0.65,\n    safety_flags: [],\n    reasoning_summary: 'Processed via deterministic safety fallback.',\n    requires_human_review: true\n  };\n}\n\nconst requiresReview = Boolean(parsed.requires_human_review) || parsed.confidence < 0.70 || parsed.category === 'other';\n\nreturn [{\n  json: {\n    ...normalizedInput,\n    category: parsed.category,\n    subcategory: parsed.subcategory || 'general',\n    ai_summary: parsed.summary,\n    severity: parsed.severity || 3,\n    confidence_score: parsed.confidence || 0.85,\n    safety_flags: parsed.safety_flags || [],\n    reasoning_summary: parsed.reasoning_summary || 'Extracted via n8n pipeline.',\n    requires_human_review: requiresReview\n  }\n}];"
+      },
+      "id": "node-triage-validator",
+      "name": "Validate Extraction & Prepare Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/api/internal/intake-persist' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-webhook-secret",
+              "value": "={{ $env.N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "node-persist-ticket",
+      "name": "Persist Real Ticket in Database",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 201
+        }
+      },
+      "id": "node-respond-intake",
+      "name": "Respond Webhook Intake",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Intake": {
+      "main": [
+        [
+          {
+            "node": "Validate & Sanitize PII",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Sanitize PII": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Structured Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Structured Extraction": {
+      "main": [
+        [
+          {
+            "node": "Validate Extraction & Prepare Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Extraction & Prepare Payload": {
+      "main": [
+        [
+          {
+            "node": "Persist Real Ticket in Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persist Real Ticket in Database": {
+      "main": [
+        [
+          {
+            "node": "Respond Webhook Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
