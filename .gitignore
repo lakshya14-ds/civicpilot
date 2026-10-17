@@ -38,6 +38,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local n8n development runtime and data
+.n8n-runtime/
+.n8n-local/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

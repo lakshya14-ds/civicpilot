@@ -47,12 +47,30 @@ Docker Compose reads the n8n values from your shell or a project `.env` file. Th
 
 Access the n8n editor at: `http://localhost:5678`
 
+### Windows development without Docker
+
+For local workflow development with Node 20.19–24, install n8n into the ignored project runtime and start it with the shared secret from `.env.local`:
+
+```powershell
+npm install --prefix .n8n-runtime n8n@2.43.7 --no-save --no-audit --no-fund
+powershell -ExecutionPolicy Bypass -File scripts\start-n8n-local.ps1
+```
+
+The script binds n8n to `127.0.0.1:5678`, stores its database and encryption key under ignored `.n8n-local`, and points workflows at the local Next.js app. This npm setup is for development only. The seven workflow definitions can be imported with:
+
+```powershell
+$env:N8N_USER_FOLDER=Join-Path (Get-Location).Path '.n8n-local'
+node .n8n-runtime\node_modules\n8n\bin\n8n import:workflow --separate --input=n8n/workflows
+```
+
+Create the owner account in the editor, inspect each imported workflow, add any required credentials, then publish the workflows you are ready to run. The local intake has passed synthetic end-to-end tests, including a live Gemini 3.6 Flash classification of a Kannada report, so `.env.local` uses `INTAKE_PROCESSING_MODE=n8n` and the local production webhook. A hosted deployment must repeat that check with its own HTTPS app and n8n URL.
+
 ### Importing Workflows
 
 1. Open `http://localhost:5678` in your browser.
 2. In the left navigation, click **Workflows** → **Add workflow** (or click the `...` menu in the upper right) → **Import from File**.
 3. Select any `.json` file from `./n8n/workflows/`.
-4. Click **Activate** (toggle in upper right) to activate each webhook.
+4. Configure the required credentials and **Publish** each workflow after testing it.
 
 ### Environment Configuration in `.env.local`
 

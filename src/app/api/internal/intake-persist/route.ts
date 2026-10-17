@@ -5,7 +5,8 @@ import { routeComplaint } from '@/lib/triage/routing';
 import { checkDuplicateComplaint } from '@/lib/triage/duplicate';
 import { dispatchNotification } from '@/lib/notifications/dispatcher';
 import { isAuthorizedWebhook } from '@/lib/security/auth';
-import { ComplaintCategory } from '@/types';
+import { Complaint, ComplaintCategory } from '@/types';
+import { StructuredAiExtraction } from '@/lib/ai/gemini';
 
 const VALID_CATEGORIES = new Set<ComplaintCategory>([
   'roads',
@@ -134,9 +135,10 @@ export async function POST(req: NextRequest) {
     let imageUrl: string | null = null;
     if (typeof body.image_url === 'string' && body.image_url.trim()) {
       const trimmedUrl = body.image_url.trim();
-      if (trimmedUrl.length <= 2048 && (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('data:image/'))) {
-        imageUrl = trimmedUrl;
+      if (trimmedUrl.length > 2048 || (!/^evidence:\/\/[a-f0-9-]{36}\.(jpg|png|webp)$/.test(trimmedUrl) && !trimmedUrl.startsWith('https://'))) {
+        return NextResponse.json({ success: false, error: 'image_url must be a private evidence reference or HTTPS URL.' }, { status: 400 });
       }
+      imageUrl = trimmedUrl;
     }
 
     const citizenName =
@@ -150,15 +152,58 @@ export async function POST(req: NextRequest) {
     const idempotencyKey =
       typeof body.idempotency_key === 'string' ? body.idempotency_key.trim().slice(0, 128) || null : null;
 
+    const reasoningSummary =
+      typeof body.reasoning_summary === 'string' && body.reasoning_summary.trim()
+        ? body.reasoning_summary.trim().slice(0, 500)
+        : 'Processed through n8n civic triage.';
+    const isRuleFallback =
+      body.is_fallback === true ||
+      (body.is_fallback !== false && /deterministic safety fallback/i.test(reasoningSummary));
+    const recordedModelName = isRuleFallback
+      ? 'n8n-deterministic-fallback'
+      : process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+    const buildAiExtraction = (ticket: Complaint): StructuredAiExtraction => ({
+      category: ticket.category as ComplaintCategory,
+      subcategory: ticket.subcategory || 'general',
+      summary: ticket.ai_summary,
+      severity: ticket.severity,
+      location_text: ticket.location_text,
+      language: ticket.language,
+      confidence: ticket.confidence_score,
+      safety_flags: safetyFlags,
+      reasoning_summary: reasoningSummary,
+      requires_human_review: ticket.requires_human_review,
+      is_fallback: isRuleFallback,
+      model_name: recordedModelName,
+    });
+
     // 4. Idempotency check
     if (idempotencyKey) {
       const existingTickets = (await StorageService.getComplaints({ limit: 1000 })).data;
       const existing = existingTickets.find((c) => c.idempotency_key === idempotencyKey);
       if (existing) {
+        const storedPriority = calculatePriorityScore({
+          severity: existing.severity,
+          safety_flags: [],
+          duplicate_count: existing.duplicate_count,
+          sla_urgency: existing.sla_breached,
+        });
         return NextResponse.json({
           success: true,
           ticket: existing,
           is_duplicate: Boolean(existing.duplicate_of),
+          ai_extraction: buildAiExtraction(existing),
+          priority_breakdown: {
+            ...storedPriority,
+            total_score: existing.priority_score,
+            priority_label: existing.priority_label,
+          },
+          duplicate_check: {
+            is_duplicate: Boolean(existing.duplicate_of),
+            confidence: 1,
+            similarity_reason: 'Existing report returned for the same idempotency key.',
+            stage: 'none',
+          },
           persisted: true,
           idempotent: true,
         });
@@ -254,6 +299,9 @@ export async function POST(req: NextRequest) {
         ticket: childTicket,
         is_duplicate: true,
         canonical_ticket: canonical,
+        ai_extraction: buildAiExtraction(childTicket),
+        priority_breakdown: updatedPriority,
+        duplicate_check: duplicateCheck,
         persisted: true,
       }, { status: 201 });
     }
@@ -319,8 +367,8 @@ export async function POST(req: NextRequest) {
     // 7. Record AI Decision Log
     await StorageService.addAiDecision({
       complaint_id: ticket.id,
-      model_name: (typeof body.model_name === 'string' && body.model_name) || 'n8n-gemini-orchestrator',
-      decision_type: 'triage',
+      model_name: recordedModelName,
+      decision_type: isRuleFallback ? 'fallback' : 'triage',
       raw_input: description,
       structured_output: {
         category,
@@ -366,6 +414,9 @@ export async function POST(req: NextRequest) {
       success: true,
       ticket,
       is_duplicate: false,
+      ai_extraction: buildAiExtraction(ticket),
+      priority_breakdown: priorityBreakdown,
+      duplicate_check: duplicateCheck,
       persisted: true,
     }, { status: 201 });
   } catch (err: unknown) {

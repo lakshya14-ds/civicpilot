@@ -1,7 +1,7 @@
 # CivicPilot 🏛️
 
 > **Autonomous AI-Powered Civic Complaint Management & Resolution Platform**  
-> *Hardened & Audited • Next.js 16 • Gemini 2.5 Flash • Supabase • n8n • Tailwind CSS*
+> *Hardened & Audited • Next.js 16 • Gemini 3.6 Flash • Supabase • n8n • Tailwind CSS*
 
 ---
 
@@ -10,7 +10,7 @@
 CivicPilot transforms municipal operations from reactive ticketing into an **autonomous civic triage engine**. When citizens report infrastructure failures—such as potholes, bursting pipelines, or dark streetlights—CivicPilot handles the complete complaint lifecycle:
 
 1. **Intake & Rate-Limited Validation**: Ingests citizen reports with location, GPS coordinates, and photo evidence. Protected by client IP sliding-window rate limiting (30 requests/min).
-2. **PII Sanitization & AI Extraction**: Masks personal data before calling LLMs and invokes **Google Gemini 2.5** to extract category, subcategory, severity (1–5), confidence, and safety flags using a strict JSON schema.
+2. **PII Sanitization & AI Extraction**: Masks personal data before calling LLMs and invokes **Google Gemini 3.6 Flash** to extract category, subcategory, severity (1–5), confidence, and safety flags using a strict JSON schema.
 3. **2-Stage Deduplication**: Detects and links matching duplicate complaints at the same location, boosting priority rather than duplicating crews, while preventing false merges across different neighborhoods.
 4. **Deterministic Priority Scoring**: Applies a transparent, audited mathematical formula combining severity, safety flags, crowd frequency, and SLA urgency.
 5. **Department Routing**: Dispatches tasks to municipal departments (Roads, Sanitation, Water, Electrical, Public Safety) or the Ombudsman fallback queue.
@@ -166,9 +166,9 @@ Access the n8n UI at `http://localhost:5678`, navigate to **Workflows → Import
 
 | Integration | Demo Mode Status (`DEMO_MODE=true`) | Live Production Status (`DEMO_MODE=false`) | Live Credentials Needed |
 |---|---|---|---|
-| **Storage / DB** | ✅ Verified (In-memory, Non-Durable) | 🟡 Ready for Configuration | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY` |
-| **AI Triage** | ✅ Verified (Deterministic Rule Fallback) | 🟡 Ready for Configuration | `GEMINI_API_KEY` |
-| **n8n Workflows** | ✅ Verified (`POST /api/internal/intake-persist`) | 🟡 Ready for Docker deployment | `N8N_WEBHOOK_URL`, `WEBHOOK_SHARED_SECRET` |
+| **Storage / DB** | ✅ Verified (In-memory, Non-Durable) | ✅ Bengaluru Supabase pilot verified with synthetic intake and private evidence | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY` |
+| **AI Triage** | ✅ Verified (Deterministic Rule Fallback) | ✅ Local Gemini 3.6 Flash intake verified with a Kannada synthetic report; hosted deployment pending | `GEMINI_API_KEY` on the deployed app and n8n |
+| **n8n Workflows** | 🟡 Internal app endpoint tested | 🟡 Local intake published and verified with web report and private photo; six other workflows and hosted n8n pending | `N8N_WEBHOOK_SECRET`; Meta credentials for WhatsApp |
 | **Email Alerts** | ✅ Verified (Recorded with `status='simulated'`) | 🟡 Ready for Configuration | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` |
 | **Telegram Alerts** | ✅ Verified (Recorded with `status='simulated'`) | 🟡 Ready for Configuration | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OFFICER_CHAT_ID` |
 

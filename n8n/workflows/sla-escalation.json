@@ -35,7 +35,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ($env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/api/escalate' }}",
+        "url": "={{ ($env.CIVICPILOT_APP_URL || 'http://localhost:3000') + '/api/escalate' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [

@@ -209,7 +209,7 @@ export async function extractComplaintWithAi(
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const model = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
     const prompt = `You are CivicPilot's expert civic complaint triage engine.
 Analyze the following citizen report.

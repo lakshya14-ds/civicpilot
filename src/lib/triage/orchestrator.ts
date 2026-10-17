@@ -108,8 +108,8 @@ export async function processComplaintIntake(
     }
 
     const webhookData = await webhookRes.json();
-    if (!webhookData || !webhookData.ticket) {
-      throw new Error('n8n intake workflow returned invalid response schema (missing ticket object).');
+    if (!webhookData?.success || !webhookData.ticket || !webhookData.ai_extraction || !webhookData.priority_breakdown || !webhookData.duplicate_check) {
+      throw new Error('n8n intake workflow returned an incomplete intake result.');
     }
 
     return webhookData as IntakeResult;

@@ -368,7 +368,7 @@ class MemoryDataStore {
       {
         id: 'ai-dec-1',
         complaint_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-        model_name: 'gemini-2.5-flash',
+        model_name: 'gemini-3.6-flash',
         decision_type: 'triage',
         raw_input: 'Large deep pothole right outside Government Engineering College...',
         structured_output: {

@@ -45,7 +45,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ ($env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/api/review' }}",
+        "url": "={{ ($env.CIVICPILOT_APP_URL || 'http://localhost:3000') + '/api/review' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
