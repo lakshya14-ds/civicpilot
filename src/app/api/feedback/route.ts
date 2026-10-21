@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { StorageService } from '@/lib/db/storage';
 import {
   verifyFeedbackToken,
+  verifyTrackingToken,
   isAuthorizedReviewer,
   isAuthorizedAdmin,
   isAuthorizedWebhook,
 } from '@/lib/security/auth';
 import { checkRateLimit, getClientIp } from '@/lib/security/rateLimit';
 import { applyCitizenFeedback } from '@/lib/triage/feedback';
+import { publicComplaint } from '@/lib/security/public-view';
 
 export async function POST(req: NextRequest) {
   try {
@@ -71,22 +73,20 @@ export async function POST(req: NextRequest) {
     const reviewerHeader = req.headers.get('x-reviewer-secret');
     const adminHeader = req.headers.get('x-admin-key');
     const webhookHeader = req.headers.get('x-webhook-secret');
-    const demoHeader = req.headers.get('x-demo-feedback');
-
-    const isDemo = process.env.DEMO_MODE === 'true';
+    const trackingHeader = req.headers.get('x-tracking-token');
 
     const isAuthorized =
       (providedToken && verifyFeedbackToken(complaint.id, providedToken)) ||
+      (trackingHeader && verifyTrackingToken(complaint.id, trackingHeader)) ||
       (reviewerHeader && isAuthorizedReviewer(reviewerHeader)) ||
       (adminHeader && isAuthorizedAdmin(adminHeader)) ||
-      (webhookHeader && isAuthorizedWebhook(webhookHeader)) ||
-      (isDemo && demoHeader === 'civicpilot-demo-confirm');
+      (webhookHeader && isAuthorizedWebhook(webhookHeader).authorized);
 
     if (!isAuthorized) {
       return NextResponse.json(
         {
           error:
-            'Unauthorized: Valid ticket feedback capability token (x-feedback-token) or staff authorization is required.',
+            'Unauthorized: A valid private ticket code or staff authorization is required.',
         },
         { status: 401 }
       );
@@ -104,11 +104,12 @@ export async function POST(req: NextRequest) {
     }
 
     const outcome = await applyCitizenFeedback(complaint, rating, trimmedFeedback, persists);
+    if (!outcome.complaint) throw new Error('Feedback update did not return a ticket.');
 
     return NextResponse.json({
       success: true,
-      complaint: outcome.complaint,
-      ticket: outcome.complaint,
+      complaint: publicComplaint(outcome.complaint),
+      ticket: publicComplaint(outcome.complaint),
       reopened: outcome.reopened,
     });
   } catch (err: unknown) {

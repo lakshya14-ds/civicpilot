@@ -21,9 +21,12 @@ import { StatusBadge, PriorityBadge } from '@/components/Badge';
 import { Complaint, ComplaintEvent, AiDecision, Department } from '@/types';
 import { CATEGORY_LABELS } from '@/lib/constants';
 import { useLanguage } from '@/components/LanguageProvider';
-import { categoryNames, detailMessages, priorityNames, statusNames, trackingMessages } from '@/lib/i18n/messages';
+import { categoryNames, detailMessages, priorityNames, statusNames, trackingMessages, type UiLanguage } from '@/lib/i18n/messages';
+import { useStaffAuth } from '@/components/StaffAuthProvider';
+import { findCitizenReport } from '@/lib/citizen-reports';
 
 function TicketDetailsContent() {
+  const { isStaff, authReady, staffSecret: authStaffSecret, staffUser } = useStaffAuth();
   const { language, t } = useLanguage();
   const safeLang = (language && detailMessages[language] ? language : 'en') as UiLanguage;
   const copy = detailMessages[safeLang] || detailMessages.en;
@@ -54,18 +57,31 @@ function TicketDetailsContent() {
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [feedbackToken, setFeedbackToken] = useState<string | null>(null);
-  const [staffSecret, setStaffSecret] = useState('');
+  const [trackingToken, setTrackingToken] = useState<string | null>(null);
+  const [staffSecret, setStaffSecret] = useState(authStaffSecret || '');
+
+  useEffect(() => {
+    if (authStaffSecret && !staffSecret) {
+      setStaffSecret(authStaffSecret);
+    }
+  }, [authStaffSecret, staffSecret]);
 
   const fetchTicketDetails = useCallback(async () => {
+    if (!authReady) return;
     try {
       setLoading(true);
       setError(null);
-      const savedStaffSecret = sessionStorage.getItem('civicpilot:staff-secret') || '';
+      const savedStaffSecret = isStaff ? authStaffSecret : '';
+      const savedCitizenReport = !isStaff ? findCitizenReport(ticketId) : undefined;
+      if (!isStaff && !savedCitizenReport) throw new Error('Use your ticket number and private tracking code to open this report.');
       setStaffSecret(savedStaffSecret);
       const res = await fetch(`/api/complaints/${ticketId}`, {
-        headers: savedStaffSecret ? { 'x-reviewer-secret': savedStaffSecret } : {},
+        headers: savedStaffSecret
+          ? { 'x-reviewer-secret': savedStaffSecret, 'x-admin-key': savedStaffSecret }
+          : { 'x-tracking-token': savedCitizenReport?.trackingToken || '' },
+        cache: 'no-store',
       });
-      if (!res.ok) throw new Error('Ticket not found');
+      if (!res.ok) throw new Error(res.status === 401 ? 'Private tracking code required for this report.' : 'Report unavailable.');
       const data = await res.json();
 
       setComplaint(data.complaint);
@@ -76,22 +92,23 @@ function TicketDetailsContent() {
       setResolutionDisplayUrl(data.media_urls?.resolution || null);
       setNewStatus(data.complaint.status);
       setSelectedDeptId(data.complaint.department_id || '');
-      setFeedbackToken(sessionStorage.getItem(`civicpilot:feedback:${data.complaint.id}`));
+      setTrackingToken(savedCitizenReport?.trackingToken || null);
+      setFeedbackToken(sessionStorage.getItem(`civicpilot:feedback:${data.complaint.id}`) || savedCitizenReport?.feedbackToken || savedCitizenReport?.trackingToken || null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error fetching ticket details');
     } finally {
       setLoading(false);
     }
-  }, [ticketId]);
+  }, [ticketId, isStaff, authStaffSecret, authReady]);
 
   useEffect(() => {
-    fetch('/api/departments')
+    if (!authReady) return;
+    if (isStaff) fetch('/api/departments')
       .then((r) => r.json())
       .then((d) => setDepartments(d || []))
       .catch(console.error);
-
     fetchTicketDetails();
-  }, [fetchTicketDetails]);
+  }, [fetchTicketDetails, isStaff, authReady]);
 
   const handleUpdateStatus = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,13 +130,14 @@ function TicketDetailsContent() {
         headers: {
           'Content-Type': 'application/json',
           'x-reviewer-secret': staffSecret || sessionStorage.getItem('civicpilot:staff-secret') || '',
+          'x-admin-key': staffSecret || sessionStorage.getItem('civicpilot:staff-secret') || '',
         },
         body: JSON.stringify({
           status: newStatus,
           resolution_notes: resolutionNotes.trim() || undefined,
           resolution_evidence_url: resolutionReference,
           department_id: selectedDeptId || undefined,
-          actor: 'Municipal Operations Staff',
+          actor: 'CivicPilot pilot staff',
         }),
       });
 
@@ -145,6 +163,7 @@ function TicketDetailsContent() {
         headers: {
           'Content-Type': 'application/json',
           'x-feedback-token': feedbackToken || '',
+          'x-tracking-token': trackingToken || '',
         },
         body: JSON.stringify({
           complaint_id: complaint.id,
@@ -172,7 +191,7 @@ function TicketDetailsContent() {
     }
   };
 
-  if (loading) {
+  if (!authReady || loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 flex flex-col items-center justify-center">
         <RefreshCw className="w-8 h-8 animate-spin text-teal-600 mb-2" />
@@ -185,7 +204,7 @@ function TicketDetailsContent() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
-        <h2 className="text-xl font-bold text-slate-900">{copy.notFound}</h2>
+        <h2 className="text-xl font-bold text-slate-900">{error ? 'Access to this report' : copy.notFound}</h2>
         <p className="text-sm text-slate-500 mt-1">{error || 'No record exists with this ID.'}</p>
         <Link
           href="/complaints"
@@ -219,7 +238,7 @@ function TicketDetailsContent() {
               {complaint.ticket_number}
             </h1>
             <StatusBadge status={complaint.status} />
-            <PriorityBadge priority={complaint.priority_label} />
+            {isStaff && <PriorityBadge priority={complaint.priority_label} />}
           </div>
         </div>
 
@@ -290,7 +309,7 @@ function TicketDetailsContent() {
                 <span className="font-bold">{copy.summary}: </span>
                 {complaint.ai_summary}
               </p>
-              {aiDecisions[0]?.reasoning_summary && (
+              {isStaff && aiDecisions[0]?.reasoning_summary && (
                 <p className="text-slate-600 text-[11px] pt-1 border-t border-teal-200/60">
                   <span className="font-semibold text-slate-700">{copy.rationale}: </span>
                   {aiDecisions[0].reasoning_summary}
@@ -313,7 +332,7 @@ function TicketDetailsContent() {
                 )}
               </div>
 
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              {isStaff && <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-slate-400 block mb-1">{copy.contact}</span>
                 <span className="font-medium text-slate-800 truncate block">
                   {complaint.citizen_name || copy.anonymous}
@@ -321,7 +340,7 @@ function TicketDetailsContent() {
                 <span className="text-[10px] text-slate-500 block truncate mt-0.5">
                   {complaint.citizen_contact || copy.noContact}
                 </span>
-              </div>
+              </div>}
 
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-slate-400 block mb-1">{copy.queue}</span>
@@ -363,7 +382,7 @@ function TicketDetailsContent() {
           </div>
 
           {/* Transparent Priority Calculation Formula Box */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+          {isStaff && <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-teal-600" />
@@ -398,7 +417,7 @@ function TicketDetailsContent() {
                 <span className="text-teal-700">{complaint.priority_score.toFixed(2)} ({priorityNames[language][complaint.priority_label] || complaint.priority_label})</span>
               </div>
             </div>
-          </div>
+          </div>}
 
           {/* Visual Timeline of Events & Audit Trail */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
@@ -434,99 +453,105 @@ function TicketDetailsContent() {
 
         {/* Right Column: Municipal Operations Controls & Citizen Feedback */}
         <div className="space-y-6">
-          {/* Status Update / Operational Resolution Box */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-teal-600" />
-              {copy.staff}
-            </h3>
+          {/* Status Update / Operational Resolution Box - Restricted to Staff */}
+          {isStaff ? (
+            <div className="bg-white p-6 rounded-2xl border border-teal-200 ring-1 ring-teal-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-teal-600" />
+                  {copy.staff}
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+                  Officer: {staffUser?.officerId || 'Staff'}
+                </span>
+              </div>
 
-            <input
-              type="password"
-              autoComplete="off"
-              value={staffSecret}
-              onChange={(event) => {
-                setStaffSecret(event.target.value);
-                sessionStorage.setItem('civicpilot:staff-secret', event.target.value);
-              }}
-              placeholder={copy.staffKey}
-              aria-label={copy.staffKey}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs text-slate-800"
-            />
-            <button type="button" onClick={fetchTicketDetails} className="text-xs font-semibold text-teal-700">{copy.loadStaff}</button>
-
-            <form onSubmit={handleUpdateStatus} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  {copy.updateStatus}
-                </label>
-                <select
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 font-medium"
+              <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                <span className="text-slate-600 font-mono text-[11px] truncate max-w-[200px]">
+                  Passkey: ••••••••••••
+                </span>
+                <button
+                  type="button"
+                  onClick={fetchTicketDetails}
+                  className="text-xs font-semibold text-teal-700 hover:underline"
                 >
-                  <option value="open">{statusNames[language].open}</option>
-                  <option value="in_progress">{statusNames[language].in_progress}</option>
-                  <option value="resolved">{statusNames[language].resolved}</option>
-                  <option value="closed">{statusNames[language].closed}</option>
-                  <option value="rejected">{statusNames[language].rejected}</option>
-                </select>
+                  {copy.loadStaff}
+                </button>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  {copy.reassign}
-                </label>
-                <select
-                  value={selectedDeptId}
-                  onChange={(e) => setSelectedDeptId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800"
+              <form onSubmit={handleUpdateStatus} className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    {copy.updateStatus}
+                  </label>
+                  <select
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 font-medium"
+                  >
+                    <option value="open">{statusNames[language].open}</option>
+                    <option value="in_progress">{statusNames[language].in_progress}</option>
+                    <option value="resolved">{statusNames[language].resolved}</option>
+                    <option value="closed">{statusNames[language].closed}</option>
+                    <option value="rejected">{statusNames[language].rejected}</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    {copy.reassign}
+                  </label>
+                  <select
+                    value={selectedDeptId}
+                    onChange={(e) => setSelectedDeptId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800"
+                  >
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    {copy.resolutionNotes}
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={resolutionNotes}
+                    onChange={(e) => setResolutionNotes(e.target.value)}
+                    placeholder="e.g. Asphalt patch applied and roller compacted. Manhole cover replaced..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    {copy.completionUpload}
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(e) => setResolutionPhoto(e.target.files?.[0] || null)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={updating || !staffSecret}
+                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
                 >
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  {copy.resolutionNotes}
-                </label>
-                <textarea
-                  rows={3}
-                  value={resolutionNotes}
-                  onChange={(e) => setResolutionNotes(e.target.value)}
-                  placeholder="e.g. Asphalt patch applied and roller compacted. Manhole cover replaced..."
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  {copy.completionUpload}
-                </label>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(e) => setResolutionPhoto(e.target.files?.[0] || null)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={updating || !staffSecret}
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
-              >
-                {updating ? copy.saving : copy.save}
-              </button>
-            </form>
-          </div>
+                  {updating ? copy.saving : copy.save}
+                </button>
+              </form>
+            </div>
+          ) : null}
 
           {/* Citizen Verification & Feedback Box */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          {!isStaff && <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
               {copy.feedback}
@@ -612,7 +637,7 @@ function TicketDetailsContent() {
                 </button>
               </form>
             )}
-          </div>
+          </div>}
         </div>
       </div>
     </div>
@@ -620,6 +645,7 @@ function TicketDetailsContent() {
 }
 
 export default function TicketDetailsPage() {
+  const { isStaff, authReady } = useStaffAuth();
   return (
     <React.Suspense
       fallback={
@@ -629,7 +655,7 @@ export default function TicketDetailsPage() {
         </div>
       }
     >
-      <TicketDetailsContent />
+      {authReady && <TicketDetailsContent key={isStaff ? 'staff' : 'citizen'} />}
     </React.Suspense>
   );
 }

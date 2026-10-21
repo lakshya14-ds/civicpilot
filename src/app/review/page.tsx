@@ -16,8 +16,11 @@ import {
 import { PriorityBadge } from '@/components/Badge';
 import { Complaint, Department, PriorityLabel } from '@/types';
 import { CATEGORY_LABELS } from '@/lib/constants';
+import { useStaffAuth } from '@/components/StaffAuthProvider';
+import { StaffGate } from '@/components/StaffGate';
 
 export default function HumanReviewPage() {
+  const { isStaff, staffSecret, staffUser } = useStaffAuth();
   const [pendingTickets, setPendingTickets] = useState<Complaint[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,11 +31,21 @@ export default function HumanReviewPage() {
   const [deptOverride, setDeptOverride] = useState('');
   const [priorityOverride, setPriorityOverride] = useState<PriorityLabel>('medium');
   const [reviewerNotes, setReviewerNotes] = useState('');
-  const [reviewerId, setReviewerId] = useState('officer-1');
-  const [reviewerSecret, setReviewerSecret] = useState('');
+  const [reviewerId, setReviewerId] = useState(staffUser?.officerId || 'officer-1');
+  const [reviewerSecret, setReviewerSecret] = useState(staffSecret || '');
   const [submitting, setSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [loadError, setLoadError] = useState('');
+
+  // Keep secrets synced with StaffAuthProvider
+  useEffect(() => {
+    if (staffSecret && !reviewerSecret) {
+      setReviewerSecret(staffSecret);
+    }
+    if (staffUser?.officerId && reviewerId === 'officer-1') {
+      setReviewerId(staffUser.officerId);
+    }
+  }, [staffSecret, staffUser, reviewerSecret, reviewerId]);
 
   const selectTicketForReview = (ticket: Complaint) => {
     setSelectedTicket(ticket);
@@ -48,7 +61,9 @@ export default function HumanReviewPage() {
       setLoading(true);
       setLoadError('');
       const [ticketsRes, deptsRes] = await Promise.all([
-        fetch('/api/complaints?requires_human_review=true&limit=50'),
+        fetch('/api/complaints?requires_human_review=true&limit=50', {
+          headers: { 'x-reviewer-secret': staffSecret, 'x-admin-key': staffSecret }, cache: 'no-store',
+        }),
         fetch('/api/departments'),
       ]);
 
@@ -86,11 +101,11 @@ export default function HumanReviewPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [staffSecret]);
 
   useEffect(() => {
-    fetchReviewQueue();
-  }, [fetchReviewQueue]);
+    if (isStaff && staffSecret) fetchReviewQueue();
+  }, [fetchReviewQueue, isStaff, staffSecret]);
 
   const handleReviewAction = async (action: 'approved' | 'rejected' | 'modified') => {
     if (!selectedTicket) return;
@@ -142,6 +157,15 @@ export default function HumanReviewPage() {
     }
   };
 
+  if (!isStaff) {
+    return (
+      <StaffGate
+        title="Pilot Staff Review Queue"
+        description="This review queue is restricted to CivicPilot staff. Reports flagged by AI as ambiguous or critical require human evaluation here before assignment."
+      />
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn space-y-6">
       {/* Header */}
@@ -186,10 +210,10 @@ export default function HumanReviewPage() {
             No complaints currently pending human review. Autonomous triage rules successfully routed incoming civic requests.
           </p>
           <Link
-            href="/submit"
+            href="/complaints"
             className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl"
           >
-            Submit Ambiguous Complaint
+            View all reports
           </Link>
         </div>
       ) : (

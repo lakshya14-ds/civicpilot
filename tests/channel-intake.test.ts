@@ -8,6 +8,7 @@ import { syncGovernmentTicket } from '../src/lib/government/adapter';
 import { saveEvidence } from '../src/lib/media/evidence';
 import { GET as complaintGet } from '../src/app/api/complaints/[id]/route';
 import { isSupabaseConfigured } from '../src/lib/db/supabase';
+import { generateTrackingToken } from '../src/lib/security/auth';
 
 process.env.DEMO_MODE = 'true';
 process.env.N8N_WEBHOOK_SECRET = 'channel-test-secret';
@@ -83,10 +84,13 @@ async function main() {
   const imageReference = await saveEvidence(image);
   await StorageService.updateComplaint(ticket.id, { image_url: imageReference });
   const publicResponse = await complaintGet(new NextRequest(`http://localhost:3000/api/complaints/${ticket.id}`), { params: Promise.resolve({ id: ticket.id }) });
-  const publicData = await publicResponse.json();
-  assert.equal(publicData.complaint.citizen_contact, null);
-  assert.equal(publicData.media_urls.report, null);
-  assert.equal(publicData.feedback_token, undefined);
+  assert.equal(publicResponse.status, 401);
+  const ownerResponse = await complaintGet(new NextRequest(`http://localhost:3000/api/complaints/${ticket.id}`, { headers: { 'x-tracking-token': generateTrackingToken(ticket.id) } }), { params: Promise.resolve({ id: ticket.id }) });
+  const ownerData = await ownerResponse.json();
+  assert.equal(ownerResponse.status, 200);
+  assert.equal(ownerData.complaint.citizen_contact, null);
+  assert.match(ownerData.media_urls.report, /^data:image\/png;base64,/);
+  assert.equal(ownerData.feedback_token, undefined);
   const staffResponse = await complaintGet(new NextRequest(`http://localhost:3000/api/complaints/${ticket.id}`, { headers: { 'x-reviewer-secret': 'channel-staff-test-key' } }), { params: Promise.resolve({ id: ticket.id }) });
   const staffData = await staffResponse.json();
   assert.match(staffData.media_urls.report, /^data:image\/png;base64,/);

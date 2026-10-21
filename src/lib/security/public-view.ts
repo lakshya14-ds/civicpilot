@@ -12,6 +12,7 @@ export function publicComplaint(complaint: Complaint): Complaint {
     longitude: null,
     citizen_name: null,
     citizen_contact: null,
+    duplicate_of: null,
     image_url: null,
     idempotency_key: null,
     citizen_feedback: null,

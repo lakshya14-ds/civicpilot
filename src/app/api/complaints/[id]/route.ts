@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { StorageService } from '@/lib/db/storage';
-import { isAuthorizedReviewer, isAuthorizedAdmin } from '@/lib/security/auth';
+import { isAuthorizedReviewer, isAuthorizedAdmin, verifyTrackingToken } from '@/lib/security/auth';
 import { ComplaintStatus, PriorityLabel } from '@/types';
 import { publicComplaint, publicEvent } from '@/lib/security/public-view';
 import { createEvidenceSignedUrl } from '@/lib/media/evidence';
@@ -30,6 +30,10 @@ export async function GET(
     }
 
     const staffAuthorized = isAuthorizedReviewer(req.headers.get('x-reviewer-secret')) || isAuthorizedAdmin(req.headers.get('x-admin-key'));
+    const citizenAuthorized = verifyTrackingToken(complaint.id, req.headers.get('x-tracking-token'));
+    if (!staffAuthorized && !citizenAuthorized) {
+      return NextResponse.json({ error: 'Private tracking code required.' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+    }
     const [events, aiDecisions, reviewActions, notifications] = await Promise.all([
       StorageService.getComplaintEvents(complaint.id),
       StorageService.getAiDecisions(complaint.id),
@@ -38,11 +42,11 @@ export async function GET(
     ]);
 
     let canonicalTicket = null;
-    if (complaint.duplicate_of) {
+    if (staffAuthorized && complaint.duplicate_of) {
       canonicalTicket = await StorageService.getComplaintById(complaint.duplicate_of);
     }
 
-    const mediaUrls = staffAuthorized ? {
+    const mediaUrls = staffAuthorized || citizenAuthorized ? {
       report: complaint.image_url ? await createEvidenceSignedUrl(complaint.image_url) : null,
       resolution: complaint.resolution_evidence_url ? await createEvidenceSignedUrl(complaint.resolution_evidence_url) : null,
     } : { report: null, resolution: null };
@@ -55,7 +59,7 @@ export async function GET(
       review_actions: staffAuthorized ? reviewActions : [],
       notifications: staffAuthorized ? notifications : [],
       media_urls: mediaUrls,
-    });
+    }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Error retrieving complaint details';
     return NextResponse.json({ error: message }, { status: 500 });

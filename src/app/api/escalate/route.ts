@@ -9,14 +9,12 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
-    const isDemo = process.env.DEMO_MODE === 'true';
     const cronSecret = process.env.CRON_SECRET;
 
     const adminHeader = req.headers.get('x-admin-key');
     const reviewerHeader = req.headers.get('x-reviewer-secret');
     const watchdogHeader = req.headers.get('x-watchdog-secret');
     const cronHeader = req.headers.get('x-cron-secret') || req.headers.get('authorization')?.replace('Bearer ', '');
-    const demoHeader = req.headers.get('x-demo-escalate');
 
     let authorized = false;
 
@@ -27,8 +25,6 @@ export async function POST(req: NextRequest) {
     } else if (reviewerHeader && isAuthorizedReviewer(reviewerHeader)) {
       authorized = true;
     } else if (watchdogHeader && isAuthorizedWebhook(watchdogHeader).authorized) {
-      authorized = true;
-    } else if (isDemo && demoHeader === 'civicpilot-demo-confirm') {
       authorized = true;
     }
 

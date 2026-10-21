@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { StorageService } from '@/lib/db/storage';
-import { publicComplaint } from '@/lib/security/public-view';
+import { isAuthorizedStaff } from '@/lib/security/auth';
 
 export async function GET(req: NextRequest) {
+  if (!isAuthorizedStaff(req.headers.get('x-reviewer-secret') || req.headers.get('x-admin-key'))) {
+    return NextResponse.json({ error: 'Staff access required.' }, { status: 401 });
+  }
   try {
     const url = new URL(req.url);
     const searchParams = url.searchParams;
@@ -39,7 +42,7 @@ export async function GET(req: NextRequest) {
       limit,
     });
 
-    return NextResponse.json({ ...result, data: result.data.map(publicComplaint) });
+    return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Error fetching complaints';
     return NextResponse.json({ error: message }, { status: 500 });

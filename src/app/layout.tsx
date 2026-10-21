@@ -42,14 +42,18 @@ export default function RootLayout({
   );
 }
 
+import { StaffAuthProvider } from '@/components/StaffAuthProvider';
+
 async function LocalizedShell({ children }: { children: React.ReactNode }) {
   const saved = (await cookies()).get('civicpilot_language')?.value;
   const initialLanguage: UiLanguage = saved === 'hi' || saved === 'kn' ? saved : 'en';
   return (
     <LanguageProvider initialLanguage={initialLanguage}>
-      <Navbar />
-      <main className="flex-1">{children}</main>
-      <Footer />
+      <StaffAuthProvider>
+        <Navbar />
+        <main className="flex-1">{children}</main>
+        <Footer />
+      </StaffAuthProvider>
     </LanguageProvider>
   );
 }

@@ -26,6 +26,34 @@ export const webPhotoMessages: Record<UiLanguage, { hint: string; tooLarge: stri
   kn: { hint: 'JPEG, PNG ಅಥವಾ WebP, ಗರಿಷ್ಠ 4 MB. ಖಾಸಗಿಯಾಗಿ ಸಂಗ್ರಹಿಸಲಾಗುತ್ತದೆ.', tooLarge: '4 MB ಗಿಂತ ಚಿಕ್ಕ ಫೋಟೋ ಆಯ್ಕೆಮಾಡಿ.' },
 };
 
+export const citizenTrackingCopy: Record<UiLanguage, {
+  title: string; intro: string; myReports: string; empty: string; ticket: string; code: string;
+  add: string; open: string; forget: string; privateNote: string; invalid: string; loading: string;
+  reportIssue: string; staffOverview: string; staffIntro: string; receiptNote: string; savedNote: string; copyCode: string;
+}> = {
+  en: { title: 'Track your report', intro: 'Only reports saved in this browser appear here. Use your ticket number and private code to add a report.', myReports: 'My reports', empty: 'No reports saved on this device yet.', ticket: 'Ticket number', code: 'Private tracking code', add: 'Add my report', open: 'View progress', forget: 'Forget on this device', privateNote: 'Keep your code private. Anyone with it can view this report.', invalid: 'We could not verify that ticket and code. Check both and try again.', loading: 'Checking your reports…', reportIssue: 'Report an issue', staffOverview: 'Staff operations', staffIntro: 'All reports, review decisions and service analytics are available to authorized pilot staff.', receiptNote: 'Save this code with your ticket number. It opens only your report. Anyone with the code can view it, so keep it private.', savedNote: 'This browser also saves your report for quick access. Avoid using a shared device.', copyCode: 'Copy code' },
+  hi: { title: 'अपनी रिपोर्ट देखें', intro: 'इस ब्राउज़र में सहेजी गई रिपोर्ट ही यहाँ दिखेंगी। रिपोर्ट जोड़ने के लिए टिकट नंबर और निजी कोड डालें।', myReports: 'मेरी रिपोर्टें', empty: 'इस डिवाइस पर अभी कोई रिपोर्ट सहेजी नहीं है।', ticket: 'टिकट नंबर', code: 'निजी ट्रैकिंग कोड', add: 'मेरी रिपोर्ट जोड़ें', open: 'प्रगति देखें', forget: 'इस डिवाइस से हटाएँ', privateNote: 'कोड निजी रखें। इसे जानने वाला कोई भी यह रिपोर्ट देख सकता है।', invalid: 'टिकट और कोड की पुष्टि नहीं हो सकी। दोनों जाँचें और दोबारा कोशिश करें।', loading: 'आपकी रिपोर्टें जाँची जा रही हैं…', reportIssue: 'समस्या दर्ज करें', staffOverview: 'कर्मचारी कार्य', staffIntro: 'सभी रिपोर्ट, समीक्षा निर्णय और सेवा आँकड़े अधिकृत पायलट कर्मचारियों के लिए हैं।', receiptNote: 'यह कोड टिकट नंबर के साथ सुरक्षित रखें। यह केवल आपकी रिपोर्ट खोलता है। जिसके पास कोड होगा वह रिपोर्ट देख सकेगा।', savedNote: 'यह ब्राउज़र भी रिपोर्ट सहेजता है। साझा डिवाइस पर सावधानी बरतें।', copyCode: 'कोड कॉपी करें' },
+  kn: { title: 'ನಿಮ್ಮ ವರದಿಯನ್ನು ನೋಡಿ', intro: 'ಈ ಬ್ರೌಸರ್‌ನಲ್ಲಿ ಉಳಿಸಿದ ವರದಿಗಳು ಮಾತ್ರ ಇಲ್ಲಿ ಕಾಣುತ್ತವೆ. ವರದಿ ಸೇರಿಸಲು ಟಿಕೆಟ್ ಸಂಖ್ಯೆ ಮತ್ತು ಖಾಸಗಿ ಕೋಡ್ ನಮೂದಿಸಿ.', myReports: 'ನನ್ನ ವರದಿಗಳು', empty: 'ಈ ಸಾಧನದಲ್ಲಿ ಇನ್ನೂ ವರದಿಗಳನ್ನು ಉಳಿಸಿಲ್ಲ.', ticket: 'ಟಿಕೆಟ್ ಸಂಖ್ಯೆ', code: 'ಖಾಸಗಿ ಟ್ರ್ಯಾಕಿಂಗ್ ಕೋಡ್', add: 'ನನ್ನ ವರದಿ ಸೇರಿಸಿ', open: 'ಪ್ರಗತಿ ನೋಡಿ', forget: 'ಈ ಸಾಧನದಿಂದ ತೆಗೆದುಹಾಕಿ', privateNote: 'ಕೋಡ್ ಅನ್ನು ಖಾಸಗಿಯಾಗಿ ಇಡಿ. ಕೋಡ್ ಇರುವ ಯಾರಾದರೂ ಈ ವರದಿಯನ್ನು ನೋಡಬಹುದು.', invalid: 'ಟಿಕೆಟ್ ಮತ್ತು ಕೋಡ್ ಪರಿಶೀಲಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಎರಡನ್ನೂ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', loading: 'ನಿಮ್ಮ ವರದಿಗಳನ್ನು ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ…', reportIssue: 'ಸಮಸ್ಯೆ ವರದಿ ಮಾಡಿ', staffOverview: 'ಸಿಬ್ಬಂದಿ ಕಾರ್ಯಗಳು', staffIntro: 'ಎಲ್ಲ ವರದಿಗಳು, ಪರಿಶೀಲನೆಗಳು ಮತ್ತು ಸೇವೆಯ ಮಾಹಿತಿ ಅಧಿಕೃತ ಪೈಲಟ್ ಸಿಬ್ಬಂದಿಗೆ ಮಾತ್ರ ಲಭ್ಯ.', receiptNote: 'ಈ ಕೋಡ್ ಅನ್ನು ಟಿಕೆಟ್ ಸಂಖ್ಯೆಯೊಂದಿಗೆ ಉಳಿಸಿ. ಇದು ನಿಮ್ಮ ವರದಿಯನ್ನು ಮಾತ್ರ ತೆರೆಯುತ್ತದೆ. ಕೋಡ್ ಇರುವ ಯಾರಾದರೂ ವರದಿಯನ್ನು ನೋಡಬಹುದು; ಖಾಸಗಿಯಾಗಿ ಇಡಿ.', savedNote: 'ಈ ಬ್ರೌಸರ್ ಕೂಡ ನಿಮ್ಮ ವರದಿಯನ್ನು ಉಳಿಸುತ್ತದೆ. ಹಂಚಿದ ಸಾಧನದಲ್ಲಿ ಎಚ್ಚರಿಕೆಯಿಂದಿರಿ.', copyCode: 'ಕೋಡ್ ನಕಲಿಸಿ' },
+};
+
+export const staffAllReports: Record<UiLanguage, string> = {
+  en: 'All reports',
+  hi: 'सभी रिपोर्टें',
+  kn: 'ಎಲ್ಲ ವರದಿಗಳು',
+};
+
+export const staffSignOut: Record<UiLanguage, string> = {
+  en: 'Sign out',
+  hi: 'साइन आउट करें',
+  kn: 'ಸೈನ್ ಔಟ್ ಮಾಡಿ',
+};
+
+export const staffIssueLabel: Record<UiLanguage, string> = {
+  en: 'Issue',
+  hi: 'समस्या',
+  kn: 'ಸಮಸ್ಯೆ',
+};
+
 export const categoryNames: Record<UiLanguage, Record<string, string>> = {
   en: { roads: 'Roads & infrastructure', sanitation: 'Sanitation & waste', water_supply: 'Water supply & sewage', electrical: 'Electrical & lighting', drainage: 'Drainage & flooding', public_safety: 'Public safety', other: 'Other civic issue' },
   hi: { roads: 'सड़क और ढाँचा', sanitation: 'सफ़ाई और कचरा', water_supply: 'जल आपूर्ति और सीवर', electrical: 'बिजली और रोशनी', drainage: 'जल निकासी', public_safety: 'सार्वजनिक सुरक्षा', other: 'अन्य नागरिक समस्या' },

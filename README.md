@@ -60,13 +60,19 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### 4. Running the Automated Acceptance & Security Regression Test Suite
 
-CivicPilot includes a **35-scenario acceptance and security test suite** for the implemented flows:
+CivicPilot includes a **36-scenario acceptance and security test suite** for the implemented flows:
 
 ```bash
 npm test
 ```
 
-The current suite reports 104 passing assertions across 35 scenarios.
+The current suite reports 112 passing assertions across 36 scenarios.
+
+### Citizen and staff views
+
+Residents see a report form and a private **My reports** page. A new web submission returns a ticket number and a private tracking code, saved on that browser. To reopen it elsewhere, enter both on **Track your report**. The code grants access to that one report, its redacted timeline, and its photos. Treat the code like a password: anyone who has it can see that report. **Forget on this device** removes the browser copy. A ticket number alone never opens a report. Existing tickets issued before tracking codes cannot be recovered through this screen; staff must arrange a verified recovery process.
+
+Pilot staff sign in with the configured reviewer or admin key. Their dashboard, all-reports list, review queue, analytics, audit log, and full ticket details cover every report. Staff can update status and queue assignments; only admins can reset demo data. This shared-key sign-in is a pilot control, not individual staff identity. Replace it with named accounts and server-managed sessions before a public launch. Citizen tracking codes and staff keys are sent in request headers, never in page URLs.
 
 ---
 
@@ -76,14 +82,13 @@ Following a thorough security and storage audit, CivicPilot implements the follo
 
 ### 1. Server-Side Reviewer Authorization
 - Hard-coded reviewer passcodes were removed from all API endpoints.
-- `POST /api/review` strictly validates authorization against `process.env.REVIEWER_SECRET_KEY` via `x-reviewer-secret` header or body.
-- Returns `401 Unauthorized` if invalid, and `500 Server Error` if `REVIEWER_SECRET_KEY` is unconfigured.
+- `POST /api/review` validates a reviewer or admin key via `x-reviewer-secret` (or the existing body field).
+- Returns `401 Unauthorized` if invalid, and `500 Server Error` if both staff keys are unconfigured.
 - Enforces state machine validation: cannot review tickets that are not in a pending review state.
 
 ### 2. Protected Administrative Reset (`POST /api/seed`)
 - Unauthenticated users cannot trigger data resets.
-- Production requires `x-admin-key: <ADMIN_API_KEY>`.
-- Demo mode requires explicit confirmation header `x-demo-reset: civicpilot-demo-confirm`. Unauthenticated requests return `401 Unauthorized`.
+- Every mode requires `x-admin-key: <ADMIN_API_KEY>`. Unauthenticated requests return `401 Unauthorized`.
 
 ### 3. Audited Supabase RLS Policies
 - Anonymous public `anon` role SELECT/INSERT access revoked on all sensitive citizen tables (`complaints`, `complaint_events`, `ai_decisions`, `review_actions`, `notifications`).

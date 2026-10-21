@@ -2,7 +2,7 @@
 
 ## Product goal
 
-Help a resident report a local, non-emergency civic issue through the web or WhatsApp, then follow that issue through a department response and citizen-confirmed resolution. n8n is the visible workflow control plane; the Next.js service owns validation, durable records, private media, and public read views.
+Help a resident report a local, non-emergency civic issue through the web or WhatsApp, then follow that issue through a department response and citizen-confirmed resolution. n8n is the visible workflow control plane; the Next.js service owns validation, durable records, private media, and ticket-scoped resident read views.
 
 ## Pilot boundary
 
@@ -53,7 +53,8 @@ flowchart LR
 - `POST /api/media`: multipart `file`; returns an opaque `evidence://...` reference. Internal callers authenticate with `x-webhook-secret`; public intake is rate-limited.
 - `POST /api/intake`: existing web JSON contract, including `image_url` set to the returned evidence reference.
 - `POST /api/internal/whatsapp-intake`: authenticated JSON `{message_id, from, text?, image_media_id?, location?, language?}`; returns `{action: "reply", text, ticket_number?}`. The server downloads Meta media while its URL is valid and persists a clarification draft if fields are missing.
-- `GET /api/complaints/:id`: public redacted ticket and timeline. Staff-only fields require staff authentication.
+- `GET /api/complaints/:id`: the resident must supply that ticket's private `x-tracking-token`; staff supply their key. Resident responses have a redacted timeline and no other ticket's details. Staff receive the full record.
+- `GET /api/complaints`, `GET /api/analytics`, and `GET /api/audit`: staff only. There is no public all-reports endpoint.
 - `POST /api/feedback`: ticket-scoped private capability or authenticated workflow; returns the new ticket state.
 
 ## Delivery order
@@ -82,6 +83,7 @@ Live WhatsApp needs a Meta business portfolio, WhatsApp Cloud app/number, access
 ### Update (21 October 2026)
 
 - The owner paused WhatsApp integration. It remains outside the active delivery scope; existing code and workflows have not been activated for public messaging.
+- Citizen and staff navigation, dashboard, report list, detail, review, and analytics now differ by role. Web receipts issue a private per-ticket tracking code. Residents can retrieve only their own ticket with that code; staff can list and manage all tickets using reviewer/admin credentials. The reset and SLA demo-header shortcuts were removed. This is a bearer-code pilot flow, so legacy tickets need a verified code recovery path and staff sign-in still needs named accounts before public launch.
 - Web dashboard, report form, tracking list, and ticket details now have an English, Hindi, and Kannada interface selector. The language choice persists in a cookie. Resident text remains in its original language. The review and analytics workstations still use English for some labels, so full interface localization remains open.
 - The web form now requires acknowledgement that this is a pilot service, displays emergency guidance, and restricts resolution feedback to eligible resolved tickets submitted in that browser. This is a pilot acknowledgement, not a complete privacy or retention policy.
 - Deterministic triage fallback recognizes common Hindi and Kannada road, sanitation, water, drainage, electrical, and safety terms, while non-English fallback cases remain subject to human review. The secured demo status-update boundary and user-visible loading failures were strengthened.

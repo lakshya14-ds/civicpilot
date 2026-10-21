@@ -35,7 +35,7 @@ Do not use `DEMO_MODE=true` on Vercel: its in-memory reports can disappear betwe
 1. Run `npm run lint`, `npm test`, `npm run test:channels`, and `npm run build` locally.
 2. Deploy a Vercel preview and open the dashboard. Confirm the storage banner says durable Supabase, not demo memory.
 3. Submit a synthetic Kannada road report with a small photo, save its ticket number, reload the ticket page, and verify that the photo is private. Repeat with Hindi and English text.
-4. Check public complaint responses for missing contact details and private image URLs. Check an unauthorized staff update returns 401.
+4. Open the site as a citizen: confirm that no all-reports list, staff dashboard, review queue, or analytics is visible. A ticket number alone must fail; the ticket's private code must open only that ticket. Check another ticket with the same code returns 401. Confirm citizen responses omit contact details and other reports. Check unauthorized list, analytics, audit, review, escalation, and reset requests fail.
 5. Resolve a synthetic ticket with an authorized reviewer key; check timeline and feedback, then clean up the synthetic records.
 6. Inspect Vercel function logs for errors. Repeat the same tests after connecting hosted n8n. The current 4 MB web photo limit leaves room below Vercel's function request limit.
 

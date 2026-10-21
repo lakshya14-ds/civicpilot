@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { StorageService } from '@/lib/db/storage';
 import { dispatchNotification } from '@/lib/notifications/dispatcher';
-import { constantTimeCompare } from '@/lib/security/auth';
+import { isAuthorizedReviewer, isAuthorizedAdmin } from '@/lib/security/auth';
 import { checkRateLimit, getClientIp } from '@/lib/security/rateLimit';
 import { PriorityLabel, ComplaintStatus, ComplaintCategory } from '@/types';
 
@@ -53,11 +53,10 @@ export async function POST(req: NextRequest) {
     } = body;
 
     // 1. Strict Server-Side Reviewer Authorization (Fail Closed, Timing-Safe)
-    const serverSecret = process.env.REVIEWER_SECRET_KEY;
-    if (!serverSecret) {
-      console.error('[Security Audit] REVIEWER_SECRET_KEY is not configured on the server');
+    if (!process.env.REVIEWER_SECRET_KEY && !process.env.ADMIN_API_KEY) {
+      console.error('[Security Audit] Staff authorization is not configured on the server');
       return NextResponse.json(
-        { error: 'Server configuration error: Reviewer authorization secret not configured.' },
+        { error: 'Server configuration error: Staff authorization secret not configured.' },
         { status: 500 }
       );
     }
@@ -66,7 +65,7 @@ export async function POST(req: NextRequest) {
       req.headers.get('x-reviewer-secret') ||
       (typeof reviewer_secret === 'string' ? reviewer_secret : null);
 
-    if (!providedSecret || !constantTimeCompare(providedSecret, serverSecret)) {
+    if (!providedSecret || !(isAuthorizedReviewer(providedSecret) || isAuthorizedAdmin(providedSecret))) {
       return NextResponse.json(
         { error: 'Unauthorized: Invalid or missing reviewer authorization credentials.' },
         { status: 401 }

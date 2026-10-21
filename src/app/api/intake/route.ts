@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processComplaintIntake } from '@/lib/triage/orchestrator';
 import { checkRateLimit, getClientIp } from '@/lib/security/rateLimit';
-import { generateFeedbackToken } from '@/lib/security/auth';
+import { generateFeedbackToken, generateTrackingToken } from '@/lib/security/auth';
+import { publicComplaint } from '@/lib/security/public-view';
 
 export async function POST(req: NextRequest) {
   try {
@@ -145,10 +146,17 @@ export async function POST(req: NextRequest) {
       idempotency_key: idempotencyKey,
     });
 
-    return NextResponse.json({ ...result, feedback_token: generateFeedbackToken(result.ticket.id) }, {
+    return NextResponse.json({
+      ...result,
+      ticket: publicComplaint(result.ticket),
+      canonical_ticket: null,
+      feedback_token: generateFeedbackToken(result.ticket.id),
+      tracking_token: generateTrackingToken(result.ticket.id),
+    }, {
       status: 201,
       headers: {
         'X-RateLimit-Remaining': String(rateLimit.remaining),
+        'Cache-Control': 'no-store',
       },
     });
   } catch (err: unknown) {

@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 
+const demoCapabilitySecret = crypto.randomBytes(32).toString('hex');
+
 /**
  * Constant-time string comparison to prevent timing attacks on sensitive secrets.
  */
@@ -18,7 +20,7 @@ export function constantTimeCompare(a: string | null | undefined, b: string | nu
 export function generateFeedbackToken(complaintId: string): string {
   const secret =
     process.env.FEEDBACK_SECRET_KEY ||
-    (process.env.DEMO_MODE === 'true' ? 'civicpilot-demo-feedback-only' : undefined);
+    (process.env.DEMO_MODE === 'true' ? demoCapabilitySecret : undefined);
   if (!secret) throw new Error('FEEDBACK_SECRET_KEY is required for citizen feedback.');
   return crypto.createHmac('sha256', secret).update(`feedback:${complaintId}`).digest('hex');
 }
@@ -30,6 +32,23 @@ export function verifyFeedbackToken(complaintId: string, providedToken: string |
   if (!complaintId || !providedToken) return false;
   const expectedToken = generateFeedbackToken(complaintId);
   return constantTimeCompare(providedToken, expectedToken);
+}
+
+/** Private bearer code issued with a web receipt; it only opens that ticket. */
+export function generateTrackingToken(complaintId: string): string {
+  const secret = process.env.FEEDBACK_SECRET_KEY ||
+    (process.env.DEMO_MODE === 'true' ? demoCapabilitySecret : undefined);
+  if (!secret) throw new Error('FEEDBACK_SECRET_KEY is required for private ticket tracking.');
+  return crypto.createHmac('sha256', secret).update(`tracking:${complaintId}`).digest('hex');
+}
+
+export function verifyTrackingToken(complaintId: string, providedToken: string | null | undefined): boolean {
+  if (!complaintId || !providedToken) return false;
+  return constantTimeCompare(providedToken, generateTrackingToken(complaintId));
+}
+
+export function isAuthorizedStaff(providedKey: string | null | undefined): boolean {
+  return isAuthorizedReviewer(providedKey) || isAuthorizedAdmin(providedKey);
 }
 
 /**

@@ -4,11 +4,10 @@ import { isAuthorizedAdmin } from '@/lib/security/auth';
 
 export async function POST(req: NextRequest) {
   try {
-    const isDemo = process.env.DEMO_MODE === 'true';
     const adminKey = process.env.ADMIN_API_KEY;
 
     // Fail closed in production if administrative credentials are not configured
-    if (!isDemo && !adminKey) {
+    if (!adminKey) {
       console.error('[Security] ADMIN_API_KEY is not configured in production environment.');
       return NextResponse.json(
         {
@@ -20,7 +19,6 @@ export async function POST(req: NextRequest) {
     }
 
     const adminHeader = req.headers.get('x-admin-key');
-    const demoHeader = req.headers.get('x-demo-reset');
 
     // Reject ordinary reviewer keys: reviewer credentials cannot perform administrative resets
     if (req.headers.has('x-reviewer-secret')) {
@@ -33,21 +31,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let authorized = false;
-
-    if (adminHeader && isAuthorizedAdmin(adminHeader)) {
-      authorized = true;
-    } else if (isDemo && demoHeader === 'civicpilot-demo-confirm') {
-      authorized = true;
-    }
-
-    if (!authorized) {
+    if (!adminHeader || !isAuthorizedAdmin(adminHeader)) {
       return NextResponse.json(
         {
           success: false,
-          error: isDemo
-            ? 'Unauthorized: Valid x-admin-key header or x-demo-reset: civicpilot-demo-confirm header is required.'
-            : 'Unauthorized: Valid x-admin-key header matching ADMIN_API_KEY is required for administrative resets.',
+          error: 'Unauthorized: Valid x-admin-key header matching ADMIN_API_KEY is required for administrative resets.',
         },
         { status: 401 }
       );

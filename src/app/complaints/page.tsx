@@ -16,10 +16,13 @@ import { StatusBadge, PriorityBadge } from '@/components/Badge';
 import { Complaint, Department } from '@/types';
 import { CATEGORY_LABELS, STATUS_LABELS, PRIORITY_LABELS } from '@/lib/constants';
 import { useLanguage } from '@/components/LanguageProvider';
-import { categoryNames, priorityNames, statusNames, trackingMessages } from '@/lib/i18n/messages';
+import { categoryNames, priorityNames, statusNames, trackingMessages, citizenTrackingCopy, staffAllReports, type UiLanguage } from '@/lib/i18n/messages';
+import { useStaffAuth } from '@/components/StaffAuthProvider';
+import { CitizenTracking } from '@/components/CitizenTracking';
 
 export default function ComplaintsPage() {
   const { language, t } = useLanguage();
+  const { isStaff, authReady, staffSecret } = useStaffAuth();
   const safeLang = (language && trackingMessages[language] ? language : 'en') as UiLanguage;
   const copy = trackingMessages[safeLang] || trackingMessages.en;
   const [complaints, setComplaints] = useState<Complaint[]>([]);
@@ -41,6 +44,7 @@ export default function ComplaintsPage() {
   const [selectedTicket, setSelectedTicket] = useState<Complaint | null>(null);
 
   const fetchComplaints = useCallback(async () => {
+    if (!isStaff || !staffSecret) return;
     try {
       setLoading(true);
       setLoadError('');
@@ -53,7 +57,7 @@ export default function ComplaintsPage() {
       params.append('page', page.toString());
       params.append('limit', '15');
 
-      const res = await fetch(`/api/complaints?${params.toString()}`);
+      const res = await fetch(`/api/complaints?${params.toString()}`, { headers: { 'x-reviewer-secret': staffSecret, 'x-admin-key': staffSecret }, cache: 'no-store' });
       if (!res.ok) throw new Error('Failed to fetch complaints');
       const data = await res.json();
 
@@ -65,18 +69,19 @@ export default function ComplaintsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, status, priority, category, departmentId, search]);
+  }, [page, status, priority, category, departmentId, search, isStaff, staffSecret]);
 
   useEffect(() => {
+    if (!isStaff) return;
     fetch('/api/departments')
       .then((res) => res.json())
       .then((data) => setDepartments(data || []))
       .catch(console.error);
-  }, []);
+  }, [isStaff]);
 
   useEffect(() => {
-    fetchComplaints();
-  }, [fetchComplaints]);
+    if (isStaff) fetchComplaints();
+  }, [fetchComplaints, isStaff]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,25 +105,22 @@ export default function ComplaintsPage() {
     return new Date(ticket.sla_due_at).getTime() < Date.now() || ticket.sla_breached;
   };
 
+  if (!authReady) return <div className="mx-auto max-w-4xl px-4 py-16 text-sm text-slate-500">Loading…</div>;
+  if (!isStaff) return <CitizenTracking />;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn">
       {/* Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            {t('trackComplaints')}
+            {citizenTrackingCopy[language].staffOverview} · {staffAllReports[language]}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            {copy.intro}
+            {citizenTrackingCopy[language].staffIntro}
           </p>
         </div>
 
-        <Link
-          href="/submit"
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs rounded-xl shadow-md transition-colors"
-        >
-          + {t('reportIssue')}
-        </Link>
       </div>
 
       {/* Filter and Search Bar */}

@@ -19,6 +19,7 @@ import { deterministicTriageFallback } from '../src/lib/ai/gemini';
 import { dispatchNotification } from '../src/lib/notifications/dispatcher';
 import {
   generateFeedbackToken,
+  generateTrackingToken,
   verifyFeedbackToken,
   constantTimeCompare,
 } from '../src/lib/security/auth';
@@ -30,6 +31,10 @@ import { POST as escalateHandler } from '../src/app/api/escalate/route';
 import { POST as reviewHandler } from '../src/app/api/review/route';
 import { PATCH as patchComplaintHandler } from '../src/app/api/complaints/[id]/route';
 import { POST as mediaHandler } from '../src/app/api/media/route';
+import { GET as listComplaintsHandler } from '../src/app/api/complaints/route';
+import { GET as getComplaintHandler } from '../src/app/api/complaints/[id]/route';
+import { GET as analyticsHandler } from '../src/app/api/analytics/route';
+import { GET as auditHandler } from '../src/app/api/audit/route';
 
 let passed = 0;
 let failed = 0;
@@ -403,13 +408,18 @@ async function runTestSuite() {
     const resReviewerReset = await seedHandler(reqReviewerReset);
     assert(resReviewerReset.status === 403, 'Reviewer secret attempting administrative reset is rejected with 403 Forbidden');
 
-    // 25c. Demo reset with documented confirmation header succeeds
+    // 25c. A public demo header must never authorize a reset
     const reqDemoConfirm = createReq('http://localhost:3000/api/seed', {
       headers: { 'x-demo-reset': 'civicpilot-demo-confirm' },
     });
     const resDemoConfirm = await seedHandler(reqDemoConfirm);
-    assert(resDemoConfirm.status === 200, 'Demo reset with confirmation header returns 200');
-    const demoJson = await resDemoConfirm.json();
+    assert(resDemoConfirm.status === 401, 'Demo reset header cannot authorize a reset');
+    const reqDemoAdmin = createReq('http://localhost:3000/api/seed', {
+      headers: { 'x-admin-key': 'master-admin-key-2026' },
+    });
+    const resDemoAdmin = await seedHandler(reqDemoAdmin);
+    assert(resDemoAdmin.status === 200, 'Demo reset with admin key returns 200');
+    const demoJson = await resDemoAdmin.json();
     assert(demoJson.mode === 'demo' && demoJson.reset === true, 'Response truthfully identifies demo mode and reset: true');
 
     // 25d. Production mode (DEMO_MODE=false) without admin key is rejected with 401
@@ -509,6 +519,12 @@ async function runTestSuite() {
   });
   const resFeedbackForged = await feedbackHandler(reqFeedbackForged);
   assert(resFeedbackForged.status === 401, 'Rejects forged capability token with 401');
+  const reqFeedbackForgedWebhook = createReq('http://localhost:3000/api/feedback', {
+    headers: { 'x-webhook-secret': 'invalid-webhook-secret' },
+    body: { complaint_id: resolvedTicketForFb.id, rating: 4, feedback: 'Forged webhook attempt' },
+  });
+  const resFeedbackForgedWebhook = await feedbackHandler(reqFeedbackForgedWebhook);
+  assert(resFeedbackForgedWebhook.status === 401, 'Rejects forged webhook secret for citizen feedback');
 
   // 27e. Authorized feedback submission with capability token succeeds and closes ticket
   const validResolvedToken = generateFeedbackToken(resolvedTicketForFb.id);
@@ -557,6 +573,11 @@ async function runTestSuite() {
     });
     const resEscalateSpoofed = await escalateHandler(reqEscalateSpoofed);
     assert(resEscalateSpoofed.status === 401, 'Client-controlled spoofed role header rejected with 401');
+    const reqEscalateDemoHeader = createReq('http://localhost:3000/api/escalate', {
+      headers: { 'x-demo-escalate': 'civicpilot-demo-confirm' },
+    });
+    const resEscalateDemoHeader = await escalateHandler(reqEscalateDemoHeader);
+    assert(resEscalateDemoHeader.status === 401, 'Demo header cannot run staff SLA watchdog');
 
     // 28c. Valid cron secret authorizes watchdog check
     const reqEscalateValid = createReq('http://localhost:3000/api/escalate', {
@@ -801,6 +822,22 @@ async function runTestSuite() {
     body: oversizedPhoto,
   }));
   assert(oversizedResponse.status === 413, 'Web media endpoint rejects photos above 4 MB before storage');
+
+  console.log('\nScenario 36: Citizen and staff read boundaries');
+  const protectedId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  const otherId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+  const ownToken = generateTrackingToken(protectedId);
+  const ownRead = await getComplaintHandler(createReq(`/api/complaints/${protectedId}`, { method: 'GET', headers: { 'x-tracking-token': ownToken } }), { params: Promise.resolve({ id: protectedId }) });
+  assert(ownRead.status === 200, `Citizen code opens its own report (HTTP ${ownRead.status})`);
+  const otherRead = await getComplaintHandler(createReq(`/api/complaints/${otherId}`, { method: 'GET', headers: { 'x-tracking-token': ownToken } }), { params: Promise.resolve({ id: otherId }) });
+  assert(otherRead.status === 401, 'Citizen code cannot open another report');
+  const unauthenticatedList = await listComplaintsHandler(createReq('/api/complaints', { method: 'GET' }));
+  assert(unauthenticatedList.status === 401, 'All-reports API rejects citizens');
+  const staffList = await listComplaintsHandler(createReq('/api/complaints', { method: 'GET', headers: { 'x-reviewer-secret': 'officer-secret-key-2026' } }));
+  assert(staffList.status === 200, 'Authorized staff can list all reports');
+  const unauthenticatedAnalytics = await analyticsHandler(createReq('/api/analytics', { method: 'GET' }));
+  const unauthenticatedAudit = await auditHandler(createReq('/api/audit', { method: 'GET' }));
+  assert(unauthenticatedAnalytics.status === 401 && unauthenticatedAudit.status === 401, 'Analytics and audit APIs reject citizens');
 
   console.log('\n================================================================');
   console.log(`🏁 TEST RESULTS: ${passed} PASSED | ${failed} FAILED`);

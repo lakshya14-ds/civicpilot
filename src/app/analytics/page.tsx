@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   TrendingUp,
   History,
@@ -21,6 +21,8 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { ComplaintEvent } from '@/types';
+import { useStaffAuth } from '@/components/StaffAuthProvider';
+import { StaffGate } from '@/components/StaffGate';
 
 interface AnalyticsData {
   summary: {
@@ -53,6 +55,7 @@ interface AnalyticsData {
 }
 
 export default function AnalyticsAuditPage() {
+  const { isStaff, staffSecret } = useStaffAuth();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [auditEvents, setAuditEvents] = useState<ComplaintEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,13 +63,13 @@ export default function AnalyticsAuditPage() {
   const [eventTypeFilter, setEventTypeFilter] = useState('');
   const [loadError, setLoadError] = useState('');
 
-  const fetchAnalyticsAndAudit = async () => {
+  const fetchAnalyticsAndAudit = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError('');
       const [analyticsRes, auditRes] = await Promise.all([
-        fetch('/api/analytics'),
-        fetch('/api/audit?limit=100'),
+        fetch('/api/analytics', { headers: { 'x-reviewer-secret': staffSecret, 'x-admin-key': staffSecret }, cache: 'no-store' }),
+        fetch('/api/audit?limit=100', { headers: { 'x-reviewer-secret': staffSecret, 'x-admin-key': staffSecret }, cache: 'no-store' }),
       ]);
 
       if (!analyticsRes.ok || !auditRes.ok) {
@@ -83,11 +86,22 @@ export default function AnalyticsAuditPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [staffSecret]);
 
   useEffect(() => {
-    fetchAnalyticsAndAudit();
-  }, []);
+    if (isStaff && staffSecret) {
+      fetchAnalyticsAndAudit();
+    }
+  }, [isStaff, staffSecret, fetchAnalyticsAndAudit]);
+
+  if (!isStaff) {
+    return (
+      <StaffGate
+        title="Pilot Staff Analytics & Audit Logs"
+        description="Workload distribution, department SLA performance, AI confidence metrics, and audit logs are restricted to CivicPilot staff."
+      />
+    );
+  }
 
   if (loading && !data) {
     return (

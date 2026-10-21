@@ -93,7 +93,6 @@ await test('POST /api/media (Private civic evidence upload)', async () => {
 
 // 6. n8n Connectivity & Intake Webhook
 let createdTicket = null;
-let feedbackToken = null;
 let reviewTargetId = null;
 await test('POST n8n Webhook /webhook/civicpilot-intake (n8n + Gemini 3.8 Flash + Supabase)', async () => {
   const res = await fetch(`${n8nUrl}/webhook/civicpilot-intake`, {
@@ -138,7 +137,6 @@ await test('POST /api/intake (Next.js Intake routing to n8n)', async () => {
   assert(data.success === true, 'Intake failed');
   assert(data.ticket && data.ticket.ticket_number, 'Missing ticket number');
   assert(data.feedback_token, 'Missing feedback token');
-  feedbackToken = data.feedback_token;
 });
 
 // 8. Officer Review Authorization & Action

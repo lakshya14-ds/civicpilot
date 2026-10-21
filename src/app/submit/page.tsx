@@ -18,7 +18,11 @@ import {
 import { PriorityBadge, StatusBadge } from '@/components/Badge';
 import { IntakeResult } from '@/lib/triage/orchestrator';
 import { useLanguage } from '@/components/LanguageProvider';
-import { categoryNames, webPhotoMessages, type UiLanguage } from '@/lib/i18n/messages';
+import { categoryNames, citizenTrackingCopy, staffAllReports, webPhotoMessages, type UiLanguage } from '@/lib/i18n/messages';
+import { saveCitizenReport } from '@/lib/citizen-reports';
+import { useStaffAuth } from '@/components/StaffAuthProvider';
+
+type CitizenIntakeResult = IntakeResult & { tracking_token?: string; feedback_token?: string };
 
 interface SamplePreset {
   title: string;
@@ -70,6 +74,7 @@ const SAMPLE_PRESETS: SamplePreset[] = [
 
 export default function SubmitComplaintPage() {
   const { language, setLanguage, t } = useLanguage();
+  const { isStaff, authReady } = useStaffAuth();
   const [description, setDescription] = useState('');
   const [locationText, setLocationText] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -82,7 +87,7 @@ export default function SubmitComplaintPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<IntakeResult | null>(null);
+  const [result, setResult] = useState<CitizenIntakeResult | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Generate unique client-side idempotency key on mount or after successful submission
@@ -168,6 +173,14 @@ export default function SubmitComplaintPage() {
       }
 
       setResult(data);
+      if (data.tracking_token && data.ticket?.id) {
+        saveCitizenReport({
+          id: data.ticket.id,
+          ticketNumber: data.ticket.ticket_number,
+          trackingToken: data.tracking_token,
+          feedbackToken: data.feedback_token,
+        });
+      }
       if (data.feedback_token && data.ticket?.id) {
         sessionStorage.setItem(`civicpilot:feedback:${data.ticket.id}`, data.feedback_token);
       }
@@ -191,6 +204,13 @@ export default function SubmitComplaintPage() {
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  if (!authReady) return <div className="civic-container py-16 text-sm text-slate-500">Loading…</div>;
+  if (isStaff) return <div className="civic-container py-16 text-center">
+    <h1 className="text-3xl font-bold text-slate-900">{citizenTrackingCopy[language].staffOverview}</h1>
+    <p className="mt-3 text-slate-600">{citizenTrackingCopy[language].staffIntro}</p>
+    <Link href="/complaints" className="mt-6 inline-flex rounded-lg bg-teal-700 px-5 py-3 font-semibold text-white">{staffAllReports[language]}</Link>
+  </div>;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-fadeIn">
@@ -268,19 +288,24 @@ export default function SubmitComplaintPage() {
             </Link>
           </div>
 
+          {result.tracking_token && (
+            <div className="mt-4 rounded-xl border border-emerald-300 bg-white p-4 text-xs text-slate-700">
+              <strong className="block text-slate-900">{citizenTrackingCopy[language].code}</strong>
+              <p className="mt-1">{citizenTrackingCopy[language].receiptNote}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <code className="break-all rounded bg-slate-100 px-2 py-1 font-mono text-[11px]">{result.tracking_token}</code>
+                <button type="button" onClick={() => navigator.clipboard.writeText(result.tracking_token || '')} className="rounded-lg border border-slate-300 px-2 py-1 font-semibold">{citizenTrackingCopy[language].copyCode}</button>
+              </div>
+              <p className="mt-2 text-slate-500">{citizenTrackingCopy[language].savedNote}</p>
+            </div>
+          )}
+
           {/* Duplicate Banner */}
           {result.is_duplicate && (
             <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900 flex items-center gap-2">
               <Layers className="w-4 h-4 text-purple-600 shrink-0" />
               <div>
-                <span className="font-bold">Duplicate Report Detected:</span> Linked to canonical ticket{' '}
-                <Link
-                  href={`/complaints/${result.canonical_ticket?.id}`}
-                  className="font-mono font-bold underline"
-                >
-                  {result.canonical_ticket?.ticket_number}
-                </Link>
-                . Report count incremented to boost dispatch priority.
+                <span className="font-bold">Similar issue found:</span> Your report is recorded under your own ticket number and may help the pilot team prioritize the issue.
               </div>
             </div>
           )}
