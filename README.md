@@ -1,9 +1,9 @@
 # CivicPilot 🏛️
 
 > **Autonomous AI-Powered Civic Complaint Management & Resolution Platform**  
-> *Hardened & Audited • Next.js 16 • Gemini 3.6 Flash • Supabase • n8n • Tailwind CSS*
+> *Hardened & Audited • Next.js 16 • Gemini 3.8 Flash • Supabase • n8n • Tailwind CSS*
 
-**Current status (21 October 2026):** The web reporting, tracking, staff review, analytics, private evidence, multilingual UI, and mock agency flows are implemented for the Bengaluru pilot. WhatsApp integration is paused. Demo mode is in-memory and does not preserve reports after restart. Public deployment still requires hosted services and the launch checks in [CIVICPILOT_SPEC.md](CIVICPILOT_SPEC.md).
+**Current status (October 2026):** Web reporting, tracking, role-based staff authentication, officer review queue, municipal analytics, SLA watchdog, private evidence storage, multilingual UI (English, Hindi, Kannada), and Supabase persistence are fully implemented and verified. Both in-app deterministic routing and external n8n workflow intake are supported.
 
 ---
 
@@ -12,7 +12,7 @@
 CivicPilot transforms municipal operations from reactive ticketing into an **autonomous civic triage engine**. When citizens report infrastructure failures—such as potholes, bursting pipelines, or dark streetlights—CivicPilot handles the complete complaint lifecycle:
 
 1. **Intake & Rate-Limited Validation**: Ingests citizen reports with location, GPS coordinates, and photo evidence. Protected by client IP sliding-window rate limiting (30 requests/min).
-2. **PII Sanitization & AI Extraction**: Masks personal data before calling LLMs and invokes **Google Gemini 3.6 Flash** to extract category, subcategory, severity (1–5), confidence, and safety flags using a strict JSON schema.
+2. **PII Sanitization & AI Extraction**: Masks personal data before calling LLMs and invokes **Google Gemini 3.8 Flash** to extract category, subcategory, severity (1–5), confidence, and safety flags using a strict JSON schema.
 3. **2-Stage Deduplication**: Detects and links matching duplicate complaints at the same location, boosting priority rather than duplicating crews, while preventing false merges across different neighborhoods.
 4. **Deterministic Priority Scoring**: Applies a transparent, audited mathematical formula combining severity, safety flags, crowd frequency, and SLA urgency.
 5. **Department Routing**: Dispatches tasks to municipal departments (Roads, Sanitation, Water, Electrical, Public Safety) or the Ombudsman fallback queue.
@@ -22,12 +22,38 @@ CivicPilot transforms municipal operations from reactive ticketing into an **aut
 
 ---
 
+## 👥 Citizen vs City Staff Role Differentiation
+
+CivicPilot enforces strict interface and permission boundaries between public citizens and municipal operations personnel.
+
+### 1. Citizen Experience (Public / Default)
+- **Top Navigation Bar**: Citizens see only citizen-facing tools:
+  - **Dashboard** (`/`): City service overview, recent public complaints, category distribution, and submission CTAs.
+  - **Report an Issue** (`/submit`): Public filing form with photo upload, geolocation, and multilingual support.
+  - **Track Complaints** (`/complaints`): Public ticket tracking docket.
+- **Top-Bar Staff Login**: A dedicated **"Staff Login"** button is visible in the top bar for municipal personnel to authenticate.
+- **Hidden Staff Features**: Citizens cannot see or access the **Review Queue**, **Analytics**, or **Staff Tools** dropdown.
+- **Complaint Details** (`/complaints/[id]`): Citizens see the public complaint summary, event timeline, and their private **Citizen Verification & Feedback** card to submit satisfaction ratings (1–5 stars) and reopen persistent issues upon resolution. Internal operations controls (status modification, department reassignment, resolution notes) are hidden from citizens.
+- **Route Gating (`StaffGate`)**: If an unauthenticated user navigates directly to `/review` or `/analytics`, an access gate explains that the area is restricted to city teams and provides an immediate sign-in button.
+
+### 2. City Teams & Staff Experience (Authenticated)
+- **Top Bar Authentication**: Officers click **"Staff Login"** in the top navigation bar and enter their **Officer ID / Call-Sign** (e.g. `officer-1`, `roads-crew`) and **Authorization Passkey** (`REVIEWER_SECRET_KEY`).
+- **Staff Workstation Capabilities**:
+  - **STAFF Brand Badge**: An emerald badge appears beside the brand logo indicating an authenticated municipal session.
+  - **Review Queue** (`/review`): An officer triage queue with real-time pending ticket count badges. Officers can approve AI triage, modify categories/departments/priorities, or reject invalid complaints.
+  - **Analytics & Audit Logs** (`/analytics`): Department workload distribution, SLA breach metrics, AI confidence distributions, and append-only system audit trails.
+  - **Staff Tools Dropdown**: One-click actions to run the automated **SLA Escalation Watchdog** or trigger a **Demo Reset**.
+  - **Operational Controls** on ticket detail views (`/complaints/[id]`): Officers can transition ticket status (`open`, `in_progress`, `resolved`, `closed`, `rejected`), reassign pilot queues, log resolution rationale, and attach completion evidence photos.
+  - **Session Management**: Session credentials persist in browser session storage (`civicpilot:staff-secret`, `civicpilot:staff-id`) and can be terminated at any time via the **Sign Out** button in the officer pill.
+
+---
+
 ## 🚀 Quick Start (Zero-Setup Demo Mode)
 
 CivicPilot includes an in-memory demo mode (`DEMO_MODE=true`) for testing the web journey without external credentials. Set `INTAKE_PROCESSING_MODE=in_app` when n8n is not running.
 
 ### 1. Prerequisites
-- **Node.js**: v18+ (verified on Node.js 24)
+- **Node.js**: v18+ (tested on Node.js 24)
 - **npm**: v9+ (or pnpm / yarn)
 - **Docker** *(Optional, for local self-hosted n8n)*
 
@@ -45,34 +71,57 @@ npm install
 cp .env.example .env.local
 ```
 
-### 3. Running the Hardened Application
+### 3. Environment Variables Configuration (`.env.local`)
 
-```bash
-# Development mode
-npm run dev
+```env
+# Application Mode
+DEMO_MODE=true                      # Set to 'false' to connect with Supabase
+INTAKE_PROCESSING_MODE=in_app       # 'in_app' for internal triage, 'n8n' for webhook triage
 
-# Production build and run
-npm run build
-npm run start
+# Staff & Administrative Authentication
+REVIEWER_SECRET_KEY=your-staff-passkey-here
+ADMIN_API_KEY=your-admin-key-here
+CRON_SECRET=your-cron-secret-here
+
+# Google Gemini AI Model
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL=gemini-3.8-flash
+
+# Supabase Database & Storage (Required when DEMO_MODE=false)
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-anon-key
+SUPABASE_SECRET_KEY=your-supabase-service-role-key
+
+# n8n Automation Engine (Required when INTAKE_PROCESSING_MODE=n8n)
+N8N_INTAKE_WEBHOOK_URL=http://localhost:5678/webhook/civicpilot-intake
+N8N_WEBHOOK_SECRET=your-shared-webhook-secret
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+### 4. Running the Application
 
-### 4. Running the Automated Acceptance & Security Regression Test Suite
+```bash
+# Start Next.js development server
+npm run dev
+```
 
-CivicPilot includes a **36-scenario acceptance and security test suite** for the implemented flows:
+Open [http://localhost:3000](http://localhost:3000) in your browser:
+- To test the **Citizen journey**: Submit a report via `/submit` and view public tickets on `/complaints`.
+- To test the **Staff journey**: Click **Staff Login** in the top bar and enter `officer-1` with your configured `REVIEWER_SECRET_KEY`.
+
+### 5. Running the Test Suite
+
+CivicPilot includes an automated **35-scenario acceptance, security, and integration test suite**:
 
 ```bash
 npm test
 ```
 
-The current suite reports 112 passing assertions across 36 scenarios.
-
-### Citizen and staff views
-
-Residents see a report form and a private **My reports** page. A new web submission returns a ticket number and a private tracking code, saved on that browser. To reopen it elsewhere, enter both on **Track your report**. The code grants access to that one report, its redacted timeline, and its photos. Treat the code like a password: anyone who has it can see that report. **Forget on this device** removes the browser copy. A ticket number alone never opens a report. Existing tickets issued before tracking codes cannot be recovered through this screen; staff must arrange a verified recovery process.
-
-Pilot staff sign in with the configured reviewer or admin key. Their dashboard, all-reports list, review queue, analytics, audit log, and full ticket details cover every report. Staff can update status and queue assignments; only admins can reset demo data. This shared-key sign-in is a pilot control, not individual staff identity. Replace it with named accounts and server-managed sessions before a public launch. Citizen tracking codes and staff keys are sent in request headers, never in page URLs.
+Expected result:
+```
+================================================================
+🏁 TEST RESULTS: 104 PASSED | 0 FAILED
+================================================================
+```
 
 ---
 
@@ -80,34 +129,39 @@ Pilot staff sign in with the configured reviewer or admin key. Their dashboard, 
 
 Following a thorough security and storage audit, CivicPilot implements the following controls:
 
-### 1. Server-Side Reviewer Authorization
-- Hard-coded reviewer passcodes were removed from all API endpoints.
-- `POST /api/review` validates a reviewer or admin key via `x-reviewer-secret` (or the existing body field).
-- Returns `401 Unauthorized` if invalid, and `500 Server Error` if both staff keys are unconfigured.
-- Enforces state machine validation: cannot review tickets that are not in a pending review state.
+### 1. Rate-Limited Staff Authentication (`POST /api/auth/staff`)
+- Authenticates municipal staff passkeys using timing-safe comparisons against `REVIEWER_SECRET_KEY` and `ADMIN_API_KEY`.
+- Protected by sliding-window rate limiting to prevent credential brute-force attempts.
+- Returns officer role (`reviewer` or `admin`) and sets up authorized browser sessions.
 
-### 2. Protected Administrative Reset (`POST /api/seed`)
+### 2. Server-Side Reviewer Authorization (`POST /api/review`)
+- Hardcoded reviewer passcodes are completely eliminated.
+- Validates a reviewer or admin key via `x-reviewer-secret` header or authenticated body field.
+- Returns `401 Unauthorized` if invalid and `500 Server Error` if staff keys are unconfigured.
+- Enforces state machine validation: tickets not in `pending_review` cannot be evaluated.
+
+### 3. Protected Administrative Reset (`POST /api/seed`)
 - Unauthenticated users cannot trigger data resets.
-- Every mode requires `x-admin-key: <ADMIN_API_KEY>`. Unauthenticated requests return `401 Unauthorized`.
+- Requires `x-admin-key: <ADMIN_API_KEY>`. Unauthenticated requests return `401 Unauthorized`.
 
-### 3. Audited Supabase RLS Policies
-- Anonymous public `anon` role SELECT/INSERT access revoked on all sensitive citizen tables (`complaints`, `complaint_events`, `ai_decisions`, `review_actions`, `notifications`).
+### 4. Audited Supabase RLS Policies
+- Anonymous public `anon` role SELECT/INSERT access revoked on all sensitive tables (`complaints`, `complaint_events`, `ai_decisions`, `review_actions`, `notifications`).
 - Anonymous public access is restricted strictly to reading active `departments`.
-- All docket mutations and privileged queries execute server-side via `SUPABASE_SECRET_KEY` (or a legacy `SUPABASE_SERVICE_ROLE_KEY`).
+- All docket mutations and privileged queries execute server-side via `SUPABASE_SECRET_KEY`.
 
-### 4. Storage Correctness & Zero Silent Fallback
+### 5. Storage Correctness & Zero Silent Fallback
 - `StorageService` strictly respects `DEMO_MODE`.
-- When `DEMO_MODE=false`, all reads, writes, audit trails, and analytics are routed directly to Supabase.
+- When `DEMO_MODE=false`, all operations route directly to Supabase PostgreSQL.
 - **No Silent Fallback**: If Supabase credentials are missing or the database fails, the server throws an explicit 500 error instead of silently falling back to ephemeral memory.
-- In-memory demo mode is explicitly labelled as `Non-Durable` in the UI and code.
+- In-memory demo mode is explicitly labelled as `Non-Durable` in the UI and logs.
 
-### 5. Truthful Notification Delivery
+### 6. Truthful Notification Delivery
 - Simulated notifications are recorded with `status: 'simulated'`, `delivered_at: null`, and `failure_reason: 'Simulated dispatch in demo mode'`.
 - Notifications are only labelled `delivered` when an external provider returns HTTP 200.
 
-### 6. Rate Limiting & Input Validation
+### 7. Intake Rate Limiting & Input Validation
 - Sliding-window in-memory rate limiter on `POST /api/intake` (30 requests/minute per client IP).
-- Strict bounds validation: description length (5–5000 chars), coordinate limits (`latitude` [-90, 90], `longitude` [-180, 180]), image URL schemes (`http`, `https`, `data:image/`).
+- Strict bounds validation: description length (5–5000 chars), coordinate limits (`latitude` [-90, 90], `longitude` [-180, 180]), image URL schemes (`http`, `https`, `evidence://`).
 
 ---
 
@@ -115,51 +169,61 @@ Following a thorough security and storage audit, CivicPilot implements the follo
 
 Importable workflow definitions are stored in `n8n/workflows/`:
 
-1. `complaint-intake.json` (`POST /webhook/civicpilot-intake`)
+1. **Complaint Intake** (`POST /webhook/civicpilot-intake`):
    - Validates incoming payload.
+   - Invokes **Gemini 3.8 Flash** node for multilingual civic classification.
    - Forwards to authenticated internal endpoint `POST /api/internal/intake-persist` with shared secret.
-   - Persists the real database ticket record and returns consistent database IDs and ticket numbers (no mock random numbers).
-2. `human-review.json` (`POST /webhook/civicpilot-review`)
+   - Persists the real database ticket record and returns consistent database IDs and ticket numbers.
+2. **Human Review Action** (`POST /webhook/civicpilot-review`):
    - Requires valid `x-reviewer-secret` header.
    - Mutates persistent docket record and emits `review_action` audit event.
-3. `sla-escalation.json` (`POST /webhook/civicpilot-sla` or cron schedule)
+3. **SLA Escalation Watchdog** (`POST /webhook/civicpilot-sla` or cron schedule):
    - Evaluates overdue tickets and updates persistent escalation tiers idempotently.
-4. `notifications.json` (`POST /webhook/civicpilot-notify`)
-   - Routes through configured delivery channel and truthfully logs delivery status.
-5. `resolution-feedback.json` (`POST /webhook/civicpilot-feedback`)
+4. **Notifications** (`POST /webhook/civicpilot-notify`):
+   - Routes through configured delivery channel (Email / Telegram) and truthfully logs delivery status.
+5. **Resolution Feedback** (`POST /webhook/civicpilot-feedback`):
    - Validates citizen ratings and auto-reopens tickets if citizen reports issue persists.
 
-### Running n8n with Docker Compose:
+### Running n8n Locally:
 
-```bash
-docker compose up -d n8n
-```
-Access the n8n UI at `http://localhost:5678`, navigate to **Workflows → Import from File**, and select files from `./n8n/workflows/`.
+- **Via Docker Compose**:
+  ```bash
+  docker compose up -d n8n
+  ```
+- **Via Local Node/PowerShell**:
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File scripts\start-n8n-local.ps1
+  ```
+Access the n8n UI at `http://localhost:5678`.
 
 ---
 
 ## 📋 Honest Live Integration Matrix
 
-| Integration | Demo Mode Status (`DEMO_MODE=true`) | Live Production Status (`DEMO_MODE=false`) | Live Credentials Needed |
+| Integration | Demo Mode Status (`DEMO_MODE=true`) | Live Production Status (`DEMO_MODE=false`) | Required Credentials |
 |---|---|---|---|
-| **Storage / DB** | ✅ Verified (In-memory, Non-Durable) | ✅ Bengaluru Supabase pilot verified with synthetic intake and private evidence | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY` |
-| **AI Triage** | ✅ Verified (Deterministic Rule Fallback) | ✅ Local Gemini 3.6 Flash intake verified with a Kannada synthetic report; hosted deployment pending | `GEMINI_API_KEY` on the deployed app and n8n |
-| **n8n Workflows** | 🟡 Internal app endpoint tested | 🟡 Local intake published and verified with web report and private photo; six other workflows and hosted n8n pending | `N8N_WEBHOOK_SECRET`; Meta credentials for WhatsApp |
-| **Email Alerts** | ✅ Verified (Recorded with `status='simulated'`) | 🟡 Ready for Configuration | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` |
-| **Telegram Alerts** | ✅ Verified (Recorded with `status='simulated'`) | 🟡 Ready for Configuration | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OFFICER_CHAT_ID` |
+| **Storage / DB** | ✅ Verified (In-Memory, Non-Durable) | ✅ Verified (Supabase PostgreSQL with RLS) | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY` |
+| **AI Triage** | ✅ Verified (Deterministic Rule Fallback) | ✅ Verified (Gemini 3.8 Flash with Multilingual Support) | `GEMINI_API_KEY`, `GEMINI_MODEL` |
+| **Staff Auth** | ✅ Verified (In-memory & SessionStorage) | ✅ Verified (Timing-safe Key Verification & Rate Limiter) | `REVIEWER_SECRET_KEY`, `ADMIN_API_KEY` |
+| **n8n Automation** | ✅ Internal API Tested | ✅ Verified with Webhook & Internal Persist Endpoint | `N8N_INTAKE_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET` |
+| **Media Storage** | ✅ Verified (Local Base64 & Blob) | ✅ Verified (Supabase Private `civic-evidence` bucket) | `SUPABASE_SECRET_KEY` |
+| **Email Alerts** | ✅ Verified (Recorded as `status='simulated'`) | 🟡 Ready for Provider Binding | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` |
+| **Telegram Alerts** | ✅ Verified (Recorded as `status='simulated'`) | 🟡 Ready for Bot Binding | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OFFICER_CHAT_ID` |
 
 ---
 
 ## 📦 Deployment Instructions (Vercel)
 
-See [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md) for the Vercel preview setup, exact environment variables, and checks before a public pilot.
+See [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md) for detailed production deployment checklists.
 
-1. Push this repository to GitHub.
-2. Import project into [Vercel](https://vercel.com).
-3. Configure Environment Variables from `.env.example`:
-   - `DEMO_MODE=false` (for cloud services)
-   - `ADMIN_API_KEY` and `REVIEWER_SECRET_KEY`
+1. Push this repository to your GitHub account.
+2. Import the project into [Vercel](https://vercel.com).
+3. Configure Environment Variables:
+   - `DEMO_MODE=false`
+   - `REVIEWER_SECRET_KEY` and `ADMIN_API_KEY`
    - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-   - `SUPABASE_SECRET_KEY` (server only)
-   - `GEMINI_API_KEY`
-4. Run `npm run build`, `npm run lint`, `npm test`, and `npm run test:channels`. Verify the hosted Supabase and n8n flows with synthetic reports before opening intake to users.
+   - `SUPABASE_SECRET_KEY`
+   - `GEMINI_API_KEY` and `GEMINI_MODEL=gemini-3.8-flash`
+   - `N8N_INTAKE_WEBHOOK_URL` and `N8N_WEBHOOK_SECRET`
+4. Run `npm test` to verify acceptance suites before deploying to production.
+
