@@ -1,18 +1,10 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+import { LanguageProvider } from '@/components/LanguageProvider';
+import { cookies } from 'next/headers';
+import type { UiLanguage } from '@/lib/i18n/messages';
 
 export const metadata: Metadata = {
   title: 'CivicPilot | Bengaluru civic issue pilot',
@@ -39,17 +31,25 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <body className="min-h-full flex flex-col">
         <Suspense fallback={<div className="h-16 bg-slate-900" />}>
-          <Navbar />
+          <LocalizedShell>{children}</LocalizedShell>
         </Suspense>
-        <Suspense fallback={null}>
-          <main className="flex-1">{children}</main>
-        </Suspense>
-        <Footer />
       </body>
     </html>
+  );
+}
+
+async function LocalizedShell({ children }: { children: React.ReactNode }) {
+  const saved = (await cookies()).get('civicpilot_language')?.value;
+  const initialLanguage: UiLanguage = saved === 'hi' || saved === 'kn' ? saved : 'en';
+  return (
+    <LanguageProvider initialLanguage={initialLanguage}>
+      <Navbar />
+      <main className="flex-1">{children}</main>
+      <Footer />
+    </LanguageProvider>
   );
 }

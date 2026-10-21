@@ -20,8 +20,12 @@ import {
 import { StatusBadge, PriorityBadge } from '@/components/Badge';
 import { Complaint, ComplaintEvent, AiDecision, Department } from '@/types';
 import { CATEGORY_LABELS } from '@/lib/constants';
+import { useLanguage } from '@/components/LanguageProvider';
+import { categoryNames, detailMessages, priorityNames, statusNames, trackingMessages } from '@/lib/i18n/messages';
 
 function TicketDetailsContent() {
+  const { language, t } = useLanguage();
+  const copy = detailMessages[language];
   const params = useParams();
   const ticketId = params.id as string;
 
@@ -56,6 +60,7 @@ function TicketDetailsContent() {
       setLoading(true);
       setError(null);
       const savedStaffSecret = sessionStorage.getItem('civicpilot:staff-secret') || '';
+      setStaffSecret(savedStaffSecret);
       const res = await fetch(`/api/complaints/${ticketId}`, {
         headers: savedStaffSecret ? { 'x-reviewer-secret': savedStaffSecret } : {},
       });
@@ -107,7 +112,6 @@ function TicketDetailsContent() {
         headers: {
           'Content-Type': 'application/json',
           'x-reviewer-secret': staffSecret || sessionStorage.getItem('civicpilot:staff-secret') || '',
-          'x-demo-patch': 'civicpilot-demo-confirm',
         },
         body: JSON.stringify({
           status: newStatus,
@@ -171,7 +175,7 @@ function TicketDetailsContent() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 flex flex-col items-center justify-center">
         <RefreshCw className="w-8 h-8 animate-spin text-teal-600 mb-2" />
-        <p className="text-xs text-slate-500">Loading complaint docket...</p>
+        <p className="text-xs text-slate-500">{copy.loading}</p>
       </div>
     );
   }
@@ -180,14 +184,14 @@ function TicketDetailsContent() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
-        <h2 className="text-xl font-bold text-slate-900">Complaint Not Found</h2>
+        <h2 className="text-xl font-bold text-slate-900">{copy.notFound}</h2>
         <p className="text-sm text-slate-500 mt-1">{error || 'No record exists with this ID.'}</p>
         <Link
           href="/complaints"
           className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Complaints Table
+          {copy.back}
         </Link>
       </div>
     );
@@ -207,7 +211,7 @@ function TicketDetailsContent() {
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 mb-2"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Back to Complaints
+            {copy.back}
           </Link>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-black font-mono text-slate-900 tracking-tight">
@@ -223,7 +227,7 @@ function TicketDetailsContent() {
           <Clock className={`w-5 h-5 ${isOverdue ? 'text-rose-600 animate-pulse' : 'text-slate-400'}`} />
           <div>
             <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-              Resolution SLA Target
+              {copy.target}
             </div>
             <div className={`font-semibold ${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-800'}`}>
               {new Date(complaint.sla_due_at).toLocaleString(undefined, {
@@ -268,7 +272,7 @@ function TicketDetailsContent() {
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                Citizen Submitted Report
+                {copy.report}
               </span>
               <p className="text-slate-800 text-sm leading-relaxed whitespace-pre-wrap p-4 bg-slate-50 rounded-xl border border-slate-200">
                 {complaint.description}
@@ -279,15 +283,15 @@ function TicketDetailsContent() {
             <div className="p-4 bg-teal-50/60 rounded-xl border border-teal-200 text-xs space-y-2">
               <div className="flex items-center gap-1.5 text-teal-800 font-bold">
                 <Sparkles className="w-4 h-4 text-teal-600" />
-                AI Triage Classification & Reasoning
+                {copy.triage}
               </div>
               <p className="text-teal-950 font-medium">
-                <span className="font-bold">Summary: </span>
+                <span className="font-bold">{copy.summary}: </span>
                 {complaint.ai_summary}
               </p>
               {aiDecisions[0]?.reasoning_summary && (
                 <p className="text-slate-600 text-[11px] pt-1 border-t border-teal-200/60">
-                  <span className="font-semibold text-slate-700">Model Rationale: </span>
+                  <span className="font-semibold text-slate-700">{copy.rationale}: </span>
                   {aiDecisions[0].reasoning_summary}
                 </p>
               )}
@@ -296,10 +300,10 @@ function TicketDetailsContent() {
             {/* Meta attributes: Location, Citizen, Language */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-slate-400 block mb-1">Location</span>
+                <span className="text-slate-400 block mb-1">{t('location')}</span>
                 <span className="font-medium text-slate-800 flex items-center gap-1 truncate">
                   <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  {complaint.location_text || 'Unspecified'}
+                  {complaint.location_text || t('unspecifiedLocation')}
                 </span>
                 {complaint.latitude && complaint.longitude && (
                   <span className="text-[10px] text-teal-600 block mt-1 font-mono">
@@ -309,22 +313,22 @@ function TicketDetailsContent() {
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-slate-400 block mb-1">Citizen Contact</span>
+                <span className="text-slate-400 block mb-1">{copy.contact}</span>
                 <span className="font-medium text-slate-800 truncate block">
-                  {complaint.citizen_name || 'Anonymous citizen'}
+                  {complaint.citizen_name || copy.anonymous}
                 </span>
                 <span className="text-[10px] text-slate-500 block truncate mt-0.5">
-                  {complaint.citizen_contact || 'No contact provided'}
+                  {complaint.citizen_contact || copy.noContact}
                 </span>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-slate-400 block mb-1">Assigned Department</span>
+                <span className="text-slate-400 block mb-1">{copy.queue}</span>
                 <span className="font-bold text-slate-900 block truncate">
                   {complaint.department_name || 'Ombudsman'}
                 </span>
                 <span className="text-[10px] text-slate-500 block capitalize mt-0.5">
-                  Category: {CATEGORY_LABELS[complaint.category] || complaint.category}
+                  {t('category')}: {categoryNames[language][complaint.category] || CATEGORY_LABELS[complaint.category] || complaint.category}
                 </span>
               </div>
             </div>
@@ -333,7 +337,7 @@ function TicketDetailsContent() {
             {(photoDisplayUrl || (complaint.image_url && !complaint.image_url.startsWith('evidence://') ? complaint.image_url : null)) && (
               <div className="pt-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
-                  Attached Photo Evidence
+                  {copy.photo}
                 </span>
                 <div className="relative rounded-xl overflow-hidden border border-slate-200 max-h-64">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -346,11 +350,11 @@ function TicketDetailsContent() {
               </div>
             )}
             {complaint.image_url === null && !photoDisplayUrl && (
-              <p className="text-[11px] text-slate-500">Citizen photos are visible only to authorized staff.</p>
+              <p className="text-[11px] text-slate-500">{copy.privatePhoto}</p>
             )}
             {resolutionDisplayUrl && (
               <div className="pt-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">Officer completion photo</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">{copy.completionPhoto}</span>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={resolutionDisplayUrl} alt="Officer completion evidence" className="max-h-64 rounded-xl border border-slate-200 object-cover" />
               </div>
@@ -363,34 +367,34 @@ function TicketDetailsContent() {
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-teal-600" />
                 <h3 className="text-sm font-bold text-slate-900">
-                  Transparent Priority Calculation Breakdown
+                  {copy.priorityBreakdown}
                 </h3>
               </div>
               <span className="text-xs font-mono font-bold px-2 py-0.5 bg-slate-100 rounded text-slate-800">
-                Total Score: {complaint.priority_score.toFixed(2)}
+                {copy.totalScore}: {complaint.priority_score.toFixed(2)}
               </span>
             </div>
 
             <p className="text-xs text-slate-500">
-              CivicPilot calculates priority deterministically to guarantee transparency and eliminate arbitrary bias:
+              {copy.formulaIntro}
             </p>
 
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 font-mono text-xs space-y-1.5 text-slate-700">
               <div className="flex justify-between">
-                <span>Base Severity Weight (Severity {complaint.severity} × 0.70):</span>
+                <span>{copy.severity} ({complaint.severity} × 0.70):</span>
                 <span className="font-bold">{(complaint.severity * 0.7).toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Duplicate Crowd Multiplier (Boost: {complaint.duplicate_count} reports):</span>
+                <span>{copy.crowd} ({complaint.duplicate_count}):</span>
                 <span className="font-bold">+{(Math.min(1.0, complaint.duplicate_count * 0.25)).toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span>SLA Urgency Factor ({isOverdue ? 'Overdue breach active' : 'Normal window'}):</span>
+                <span>{copy.urgency} ({isOverdue ? trackingMessages[language].overdue : copy.target}):</span>
                 <span className="font-bold">+{isOverdue ? '0.50' : '0.00'}</span>
               </div>
               <div className="pt-2 border-t border-slate-200 flex justify-between font-bold text-slate-900">
-                <span>Final Operational Score:</span>
-                <span className="text-teal-700">{complaint.priority_score.toFixed(2)} ({complaint.priority_label.toUpperCase()})</span>
+                <span>{copy.finalScore}:</span>
+                <span className="text-teal-700">{complaint.priority_score.toFixed(2)} ({priorityNames[language][complaint.priority_label] || complaint.priority_label})</span>
               </div>
             </div>
           </div>
@@ -400,9 +404,9 @@ function TicketDetailsContent() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <History className="w-4 h-4 text-slate-600" />
-                <h3 className="text-sm font-bold text-slate-900">Complaint Lifecycle Audit Trail</h3>
+                <h3 className="text-sm font-bold text-slate-900">{copy.timeline}</h3>
               </div>
-              <span className="text-xs text-slate-400">{events.length} recorded events</span>
+              <span className="text-xs text-slate-400">{events.length} {copy.events}</span>
             </div>
 
             <div className="relative pl-6 space-y-4 border-l-2 border-teal-500/30">
@@ -433,7 +437,7 @@ function TicketDetailsContent() {
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Building2 className="w-4 h-4 text-teal-600" />
-              Department Operational Controls
+              {copy.staff}
             </h3>
 
             <input
@@ -444,33 +448,33 @@ function TicketDetailsContent() {
                 setStaffSecret(event.target.value);
                 sessionStorage.setItem('civicpilot:staff-secret', event.target.value);
               }}
-              placeholder="Staff access key"
-              aria-label="Staff access key"
+              placeholder={copy.staffKey}
+              aria-label={copy.staffKey}
               className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs text-slate-800"
             />
-            <button type="button" onClick={fetchTicketDetails} className="text-xs font-semibold text-teal-700">Load staff view</button>
+            <button type="button" onClick={fetchTicketDetails} className="text-xs font-semibold text-teal-700">{copy.loadStaff}</button>
 
             <form onSubmit={handleUpdateStatus} className="space-y-3 text-xs">
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Update Ticket Status
+                  {copy.updateStatus}
                 </label>
                 <select
                   value={newStatus}
                   onChange={(e) => setNewStatus(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-800 font-medium"
                 >
-                  <option value="open">Open</option>
-                  <option value="in_progress">In Progress (Field Team Dispatched)</option>
-                  <option value="resolved">Resolved (Work Completed)</option>
-                  <option value="closed">Closed (Verified)</option>
-                  <option value="rejected">Rejected (Out of Municipal Scope)</option>
+                  <option value="open">{statusNames[language].open}</option>
+                  <option value="in_progress">{statusNames[language].in_progress}</option>
+                  <option value="resolved">{statusNames[language].resolved}</option>
+                  <option value="closed">{statusNames[language].closed}</option>
+                  <option value="rejected">{statusNames[language].rejected}</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Reassign Department
+                  {copy.reassign}
                 </label>
                 <select
                   value={selectedDeptId}
@@ -487,7 +491,7 @@ function TicketDetailsContent() {
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Resolution Notes / Field Report
+                  {copy.resolutionNotes}
                 </label>
                 <textarea
                   rows={3}
@@ -500,7 +504,7 @@ function TicketDetailsContent() {
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Completion photo (optional)
+                  {copy.completionUpload}
                 </label>
                 <input
                   type="file"
@@ -512,10 +516,10 @@ function TicketDetailsContent() {
 
               <button
                 type="submit"
-                disabled={updating}
+                disabled={updating || !staffSecret}
                 className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
               >
-                {updating ? 'Saving Update...' : 'Commit Status Update'}
+                {updating ? copy.saving : copy.save}
               </button>
             </form>
           </div>
@@ -524,19 +528,23 @@ function TicketDetailsContent() {
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-              Citizen Resolution Feedback
+              {copy.feedback}
             </h3>
 
             {complaint.citizen_rating ? (
               <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-1">
                 <div className="font-bold flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  Citizen Feedback Recorded ({complaint.citizen_rating} / 5 Stars)
+                  {copy.recorded} ({complaint.citizen_rating} / 5)
                 </div>
                 <p className="italic text-slate-700">
-                  &ldquo;{complaint.citizen_feedback || 'No comments provided'}&rdquo;
+                  &ldquo;{complaint.citizen_feedback || copy.noComments}&rdquo;
                 </p>
               </div>
+            ) : complaint.status !== 'resolved' && complaint.status !== 'closed' ? (
+              <p className="text-xs leading-relaxed text-slate-600">{copy.feedbackUnavailable}</p>
+            ) : !feedbackToken ? (
+              <p className="text-xs leading-relaxed text-slate-600">{copy.feedbackAccess}</p>
             ) : (
               <form onSubmit={handleSubmitFeedback} className="space-y-3 text-xs">
                 {feedbackMessage && (
@@ -547,7 +555,7 @@ function TicketDetailsContent() {
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
-                    Satisfaction Rating
+                    {copy.rating}
                   </label>
                   <div className="flex items-center gap-2">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -570,7 +578,7 @@ function TicketDetailsContent() {
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Citizen Feedback Comments
+                    {copy.comments}
                   </label>
                   <textarea
                     rows={2}
@@ -590,7 +598,7 @@ function TicketDetailsContent() {
                     className="rounded text-rose-600"
                   />
                   <label htmlFor="problemPersists" className="text-[11px] text-slate-700 font-medium">
-                    Issue still persists (automatically re-opens ticket)
+                    {copy.persists}
                   </label>
                 </div>
 
@@ -599,7 +607,7 @@ function TicketDetailsContent() {
                   disabled={feedbackSubmitting}
                   className="w-full py-2 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
                 >
-                  {feedbackSubmitting ? 'Submitting...' : 'Submit Citizen Feedback'}
+                  {feedbackSubmitting ? copy.sending : copy.sendFeedback}
                 </button>
               </form>
             )}

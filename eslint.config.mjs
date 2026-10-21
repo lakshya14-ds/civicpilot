@@ -18,6 +18,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    ".n8n-local/**",
+    ".n8n-runtime/**",
   ]),
 ]);
 

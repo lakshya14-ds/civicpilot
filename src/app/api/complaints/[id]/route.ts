@@ -70,15 +70,12 @@ export async function PATCH(
     const { id } = await params;
 
     // 1. Authorization check for status mutations
-    const isDemo = process.env.DEMO_MODE === 'true';
     const reviewerHeader = req.headers.get('x-reviewer-secret');
     const adminHeader = req.headers.get('x-admin-key');
-    const demoHeader = req.headers.get('x-demo-patch');
 
     const isAuthorized =
       (reviewerHeader && isAuthorizedReviewer(reviewerHeader)) ||
-      (adminHeader && isAuthorizedAdmin(adminHeader)) ||
-      (isDemo && (demoHeader === 'civicpilot-demo-confirm' || !adminHeader));
+      (adminHeader && isAuthorizedAdmin(adminHeader));
 
     if (!isAuthorized) {
       return NextResponse.json(

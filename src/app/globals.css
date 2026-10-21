@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root { --ink:#143044; --ink-deep:#0d293e; --teal:#158a83; --teal-light:#e3f3f1; --paper:#f7f9f8; --line:#dce5e4; --muted:#5d7078; --gold:#f3b455; }
-@theme inline { --color-background:var(--paper); --color-foreground:var(--ink); --font-sans:var(--font-geist-sans); --font-mono:var(--font-geist-mono); }
+@theme inline { --color-background:var(--paper); --color-foreground:var(--ink); --font-sans:Arial,Helvetica,sans-serif; --font-mono:Consolas,monospace; }
 * { box-sizing:border-box; }
 html { scroll-behavior:auto; }
 .civic-examples summary { cursor:pointer; list-style:none; }
@@ -34,6 +34,8 @@ a,button { -webkit-tap-highlight-color:transparent; }
 .civic-staff-tools p { padding:8px; line-height:1.4; color:#375e62; }
 .civic-demo-strip { text-align:center; font-size:10px; letter-spacing:.03em; color:#cbdcde; background:#22475b; padding:5px 16px; }
 .civic-menu-toggle { display:none; color:white; background:none; border:0; cursor:pointer; }
+.civic-language { flex:none; }
+.civic-language select { max-width:88px; background:#244b5d; color:#fff; border:1px solid #5d8390; border-radius:6px; padding:7px 5px; font-size:12px; cursor:pointer; }
 .civic-footer { background:#102e45; color:#c9d9df; margin-top:auto; padding:39px 0; }
 .civic-footer-inner { display:flex; align-items:center; justify-content:space-between; gap:30px; }
 .civic-footer-brand { color:#fff; display:flex; align-items:center; gap:8px; font:bold 22px Georgia,serif; }
@@ -122,6 +124,7 @@ main > div:not(.civic-dashboard) .shadow-md,main > div:not(.civic-dashboard) .sh
 @media(max-width:1250px) { .civic-header-action { display:none; } }
 @media(max-width:1100px) { .civic-header-inner { gap:22px; }.civic-nav { gap:16px; }.civic-metric { padding:18px; }.civic-dashboard-grid,.civic-dashboard-bottom { grid-template-columns:minmax(0,1fr) minmax(300px,.75fr); } }
 @media(max-width:800px) { .civic-container { width:min(100% - 32px,1360px); }.civic-header-inner { min-height:64px; }.civic-brand { font-size:24px; }.civic-menu-toggle { display:block; margin-left:0; }.civic-staff-tools { margin-left:auto; }.civic-nav { display:none; position:absolute; top:87px; left:0; right:0; background:#102e45; padding:12px 16px 20px; box-shadow:0 12px 22px #0c273c30; }.civic-nav.is-open { display:flex; flex-direction:column; gap:0; }.civic-nav a { min-height:45px; padding-inline:12px; }.civic-nav a.active:after { width:3px; height:28px; top:8px; right:auto; bottom:auto; }.civic-hero { grid-template-columns:1fr; min-height:unset; gap:5px; padding-block:34px 20px; }.civic-hero-copy h1 { max-width:640px; }.civic-hero-art { height:190px; max-width:460px; justify-self:end; }.civic-metrics { grid-template-columns:repeat(2,1fr); }.civic-metric:nth-child(2) { border-right:0; }.civic-metric:nth-child(-n+2) { border-bottom:1px solid var(--line); }.civic-dashboard-grid,.civic-dashboard-bottom { grid-template-columns:1fr; }.civic-footer-inner { flex-wrap:wrap; }.civic-footer nav { order:3; width:100%; } }
+@media(max-width:800px) { .civic-header-inner { gap:12px; }.civic-brand { font-size:20px; }.civic-staff-tools { display:none; }.civic-language { margin-left:auto; }.civic-nav { top:89px; }.civic-language select { max-width:80px; } }
 @media(max-width:520px) { .civic-hero-copy h1 { font-size:40px; }.civic-hero-copy p { font-size:14px; }.civic-hero-art { display:none; }.civic-hero { padding-bottom:28px; }.civic-hero-actions { gap:8px; }.civic-button { font-size:12px; padding-inline:14px; }.civic-metric { padding:15px 12px; gap:10px; }.civic-metric-icon { width:35px; height:35px; }.civic-metric strong { font-size:24px; }.civic-metric span { font-size:9px; }.civic-metric small { font-size:10px; }.civic-panel-heading { padding:20px 18px; }.civic-panel-heading h2 { font-size:22px; }.civic-footer nav { flex-wrap:wrap; gap:12px 20px; } }
 @media(max-width:800px) { .civic-header:not(:has(.civic-demo-strip)) .civic-nav { top:64px; } }
 @media(max-width:650px) { .civic-table { min-width:0; }.civic-table th:nth-child(2),.civic-table td:nth-child(2),.civic-table th:nth-child(4),.civic-table td:nth-child(4) { display:none; }.civic-ticket-title { max-width:320px; }.civic-table td:last-child,.civic-table th:last-child { text-align:right; } }

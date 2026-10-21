@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
       (body.is_fallback !== false && /deterministic safety fallback/i.test(reasoningSummary));
     const recordedModelName = isRuleFallback
       ? 'n8n-deterministic-fallback'
-      : process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+      : process.env.GEMINI_MODEL || 'gemini-3.8-flash';
     const buildAiExtraction = (ticket: Complaint): StructuredAiExtraction => ({
       category: ticket.category as ComplaintCategory,
       subcategory: ticket.subcategory || 'general',

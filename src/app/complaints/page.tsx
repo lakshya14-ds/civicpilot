@@ -15,14 +15,19 @@ import {
 import { StatusBadge, PriorityBadge } from '@/components/Badge';
 import { Complaint, Department } from '@/types';
 import { CATEGORY_LABELS, STATUS_LABELS, PRIORITY_LABELS } from '@/lib/constants';
+import { useLanguage } from '@/components/LanguageProvider';
+import { categoryNames, priorityNames, statusNames, trackingMessages } from '@/lib/i18n/messages';
 
 export default function ComplaintsPage() {
+  const { language, t } = useLanguage();
+  const copy = trackingMessages[language];
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [loadError, setLoadError] = useState('');
 
   // Filters
   const [search, setSearch] = useState('');
@@ -37,6 +42,7 @@ export default function ComplaintsPage() {
   const fetchComplaints = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError('');
       const params = new URLSearchParams();
       if (search.trim()) params.append('search', search.trim());
       if (status) params.append('status', status);
@@ -54,7 +60,7 @@ export default function ComplaintsPage() {
       setTotal(data.total || 0);
       setTotalPages(data.totalPages || 1);
     } catch (err) {
-      console.error(err);
+      setLoadError(err instanceof Error ? err.message : 'Unable to load reports.');
     } finally {
       setLoading(false);
     }
@@ -99,10 +105,10 @@ export default function ComplaintsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Track complaints
+            {t('trackComplaints')}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Find a report and follow its progress, from first review to resolution.
+            {copy.intro}
           </p>
         </div>
 
@@ -110,7 +116,7 @@ export default function ComplaintsPage() {
           href="/submit"
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs rounded-xl shadow-md transition-colors"
         >
-          + Report an issue
+          + {t('reportIssue')}
         </Link>
       </div>
 
@@ -123,7 +129,7 @@ export default function ComplaintsPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by ticket ID (CP-...), description, location, or citizen..."
+              placeholder={copy.searchHint}
               className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 text-xs sm:text-sm text-slate-900"
             />
           </div>
@@ -131,7 +137,7 @@ export default function ComplaintsPage() {
             type="submit"
             className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 transition-colors"
           >
-            Search
+            {copy.search}
           </button>
         </form>
 
@@ -139,7 +145,7 @@ export default function ComplaintsPage() {
           {/* Status filter */}
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Status
+              {t('status')}
             </label>
             <select
               value={status}
@@ -149,10 +155,10 @@ export default function ComplaintsPage() {
               }}
               className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs text-slate-800 bg-white"
             >
-              <option value="">All Statuses</option>
+              <option value="">{copy.allStatuses}</option>
               {Object.entries(STATUS_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>
-                  {v}
+                  {statusNames[language][k] || v}
                 </option>
               ))}
             </select>
@@ -161,7 +167,7 @@ export default function ComplaintsPage() {
           {/* Priority filter */}
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Priority
+              {t('priority')}
             </label>
             <select
               value={priority}
@@ -171,10 +177,10 @@ export default function ComplaintsPage() {
               }}
               className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs text-slate-800 bg-white"
             >
-              <option value="">All Priorities</option>
+              <option value="">{copy.allPriorities}</option>
               {Object.entries(PRIORITY_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>
-                  {v}
+                  {priorityNames[language][k] || v}
                 </option>
               ))}
             </select>
@@ -183,7 +189,7 @@ export default function ComplaintsPage() {
           {/* Category filter */}
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Category
+              {t('category')}
             </label>
             <select
               value={category}
@@ -193,10 +199,10 @@ export default function ComplaintsPage() {
               }}
               className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs text-slate-800 bg-white"
             >
-              <option value="">All Categories</option>
+              <option value="">{copy.allCategories}</option>
               {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>
-                  {v}
+                  {categoryNames[language][k] || v}
                 </option>
               ))}
             </select>
@@ -205,7 +211,7 @@ export default function ComplaintsPage() {
           {/* Department filter */}
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Department
+              {copy.queue}
             </label>
             <select
               value={departmentId}
@@ -215,7 +221,7 @@ export default function ComplaintsPage() {
               }}
               className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs text-slate-800 bg-white"
             >
-              <option value="">All Departments</option>
+              <option value="">{copy.allQueues}</option>
               {departments.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
@@ -230,38 +236,39 @@ export default function ComplaintsPage() {
               onClick={handleClearFilters}
               className="w-full py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs rounded-lg transition-colors"
             >
-              Reset Filters
+              {copy.reset}
             </button>
           </div>
         </div>
       </div>
 
       {/* Complaints Table */}
+      {loadError && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">{loadError} <button type="button" onClick={fetchComplaints} className="ml-2 font-bold underline">{t('tryAgain')}</button></div>}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
           <div className="py-20 flex flex-col items-center justify-center text-slate-500">
             <RefreshCw className="w-8 h-8 animate-spin text-teal-600 mb-2" />
-            <span className="text-xs font-medium">Filtering complaint records...</span>
+            <span className="text-xs font-medium">{copy.loading}</span>
           </div>
         ) : complaints.length === 0 ? (
           <div className="py-20 text-center text-slate-500">
             <AlertCircle className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-            <h3 className="text-sm font-bold text-slate-800">No complaints match your query</h3>
-            <p className="text-xs text-slate-400 mt-1">Try adjusting your filters or search keywords</p>
+            <h3 className="text-sm font-bold text-slate-800">{copy.empty}</h3>
+            <p className="text-xs text-slate-400 mt-1">{copy.adjust}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-600">
               <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
                 <tr>
-                  <th className="px-5 py-3.5 font-semibold">Ticket ID</th>
-                  <th className="px-5 py-3.5 font-semibold">Summary & Location</th>
-                  <th className="px-5 py-3.5 font-semibold">Category</th>
-                  <th className="px-5 py-3.5 font-semibold">Priority</th>
-                  <th className="px-5 py-3.5 font-semibold">Status</th>
-                  <th className="px-5 py-3.5 font-semibold">Department</th>
-                  <th className="px-5 py-3.5 font-semibold">SLA Status</th>
-                  <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
+                  <th className="px-5 py-3.5 font-semibold">{copy.ticket}</th>
+                  <th className="px-5 py-3.5 font-semibold">{copy.summary}</th>
+                  <th className="px-5 py-3.5 font-semibold">{t('category')}</th>
+                  <th className="px-5 py-3.5 font-semibold">{t('priority')}</th>
+                  <th className="px-5 py-3.5 font-semibold">{t('status')}</th>
+                  <th className="px-5 py-3.5 font-semibold">{copy.queue}</th>
+                  <th className="px-5 py-3.5 font-semibold">{copy.deadline}</th>
+                  <th className="px-5 py-3.5 font-semibold text-right">{copy.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -282,12 +289,12 @@ export default function ComplaintsPage() {
                         {item.duplicate_of && (
                           <div className="flex items-center gap-1 text-[10px] text-purple-600 font-sans font-medium mt-0.5">
                             <Layers className="w-3 h-3" />
-                            Duplicate ({item.duplicate_count})
+                            {copy.duplicate} ({item.duplicate_count})
                           </div>
                         )}
                         {item.requires_human_review && (
                           <div className="text-[10px] text-purple-700 font-sans font-semibold mt-0.5">
-                            ★ Review Needed
+                            ★ {copy.reviewNeeded}
                           </div>
                         )}
                       </td>
@@ -298,13 +305,13 @@ export default function ComplaintsPage() {
                           {item.ai_summary || item.description}
                         </div>
                         <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                          📍 {item.location_text || 'Location unspecified'}
+                          📍 {item.location_text || t('unspecifiedLocation')}
                         </div>
                       </td>
 
                       {/* Category */}
                       <td className="px-5 py-4 text-xs font-medium text-slate-800 whitespace-nowrap">
-                        {CATEGORY_LABELS[item.category] || item.category}
+                        {categoryNames[language][item.category] || CATEGORY_LABELS[item.category] || item.category}
                       </td>
 
                       {/* Priority */}
@@ -327,7 +334,7 @@ export default function ComplaintsPage() {
                         {overdue ? (
                           <span className="inline-flex items-center gap-1 text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
                             <ClockAlert className="w-3 h-3" />
-                            Overdue
+                            {copy.overdue}
                           </span>
                         ) : (
                           <span className="text-slate-500 text-[11px]">
@@ -355,7 +362,7 @@ export default function ComplaintsPage() {
                             href={`/complaints/${item.id}`}
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-200 transition-colors"
                           >
-                            Details
+                            {copy.details}
                             <ArrowRight className="w-3 h-3" />
                           </Link>
                         </div>
@@ -371,8 +378,8 @@ export default function ComplaintsPage() {
         {/* Pagination Footer */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
           <div>
-            Showing <span className="font-bold">{complaints.length}</span> of{' '}
-            <span className="font-bold">{total}</span> complaints
+            {copy.showing} <span className="font-bold">{complaints.length}</span> {copy.of}{' '}
+            <span className="font-bold">{total}</span> {copy.reports}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -380,17 +387,17 @@ export default function ComplaintsPage() {
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               className="px-3 py-1 rounded-md bg-white border border-slate-300 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
             >
-              Previous
+              {copy.previous}
             </button>
             <span className="px-2 font-medium">
-              Page {page} of {totalPages}
+              {copy.page} {page} {copy.of} {totalPages}
             </span>
             <button
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               className="px-3 py-1 rounded-md bg-white border border-slate-300 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
             >
-              Next
+              {copy.next}
             </button>
           </div>
         </div>

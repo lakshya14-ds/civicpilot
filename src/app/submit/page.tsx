@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { PriorityBadge, StatusBadge } from '@/components/Badge';
 import { IntakeResult } from '@/lib/triage/orchestrator';
+import { useLanguage } from '@/components/LanguageProvider';
+import { categoryNames, webPhotoMessages, type UiLanguage } from '@/lib/i18n/messages';
 
 interface SamplePreset {
   title: string;
@@ -67,6 +69,7 @@ const SAMPLE_PRESETS: SamplePreset[] = [
 ];
 
 export default function SubmitComplaintPage() {
+  const { language, setLanguage, t } = useLanguage();
   const [description, setDescription] = useState('');
   const [locationText, setLocationText] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -75,7 +78,7 @@ export default function SubmitComplaintPage() {
   const [citizenContact, setCitizenContact] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const photoInput = useRef<HTMLInputElement>(null);
-  const [language, setLanguage] = useState('en');
+  const [consent, setConsent] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,17 +107,25 @@ export default function SubmitComplaintPage() {
             setLocationText(`GPS: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
           }
         },
-        () => setError('Location access was declined. Please enter a landmark or coordinates.'),
+        () => setError(t('locationError')),
       );
     } else {
-      setError('Location is unavailable on this device. Please enter a landmark.');
+      setError(t('locationUnavailable'));
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (description.trim().length < 5) {
-      setError('Please provide at least 5 characters describing the civic issue.');
+      setError(t('shortDescription'));
+      return;
+    }
+    if (!consent) {
+      setError(t('consentError'));
+      return;
+    }
+    if (photo && photo.size > 4 * 1024 * 1024) {
+      setError(webPhotoMessages[language].tooLarge);
       return;
     }
 
@@ -129,7 +140,7 @@ export default function SubmitComplaintPage() {
         const uploadResponse = await fetch('/api/media', { method: 'POST', body: upload });
         const uploadData = await uploadResponse.json();
         if (!uploadResponse.ok || !uploadData.reference) {
-          throw new Error(uploadData.error || 'Photo upload failed.');
+          throw new Error(uploadData.error || t('uploadError'));
         }
         imageReference = uploadData.reference;
       }
@@ -153,7 +164,7 @@ export default function SubmitComplaintPage() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to submit complaint');
+        throw new Error(data.error || t('submitError'));
       }
 
       setResult(data);
@@ -161,6 +172,7 @@ export default function SubmitComplaintPage() {
         sessionStorage.setItem(`civicpilot:feedback:${data.ticket.id}`, data.feedback_token);
       }
       setPhoto(null);
+      setConsent(false);
       if (photoInput.current) photoInput.current.value = '';
       // Reset idempotency key for next submission
       setIdempotencyKey(crypto.randomUUID());
@@ -186,13 +198,13 @@ export default function SubmitComplaintPage() {
       <div className="text-center mb-8">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200 mb-3">
           <Sparkles className="w-3.5 h-3.5" />
-          Your city, your voice
+          {t('submitTag')}
         </div>
         <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-          Report an issue
+          {t('submitTitle')}
         </h1>
         <p className="text-sm text-slate-600 mt-2 max-w-xl mx-auto">
-          Tell us what needs attention in your Bengaluru neighbourhood. Add a location and a few details so the pilot team can review it.
+          {t('submitIntro')}
         </p>
       </div>
 
@@ -200,7 +212,7 @@ export default function SubmitComplaintPage() {
       <details className="civic-examples bg-slate-100/80 p-4 rounded-2xl border border-slate-200 mb-8">
         <summary className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-          Try an example
+          {t('example')}
         </summary>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
           {SAMPLE_PRESETS.map((preset) => (
@@ -232,7 +244,7 @@ export default function SubmitComplaintPage() {
               </div>
               <div>
                 <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                  Complaint Successfully Registered
+                  {t('success')}
                 </span>
                 <h2 className="text-2xl font-black font-mono text-emerald-950 flex items-center gap-2 mt-0.5">
                   {result.ticket.ticket_number}
@@ -251,7 +263,7 @@ export default function SubmitComplaintPage() {
               href={`/complaints/${result.ticket.id}`}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 text-white font-bold text-xs rounded-xl hover:bg-emerald-800 shadow-md transition-colors"
             >
-              View Ticket
+              {t('viewTicket')}
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -276,14 +288,14 @@ export default function SubmitComplaintPage() {
           {/* AI Extraction Summary */}
           <div className="mt-4 pt-4 border-t border-emerald-200/80 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
             <div>
-              <span className="text-emerald-700 font-medium block">Category</span>
+              <span className="text-emerald-700 font-medium block">{t('category')}</span>
               <span className="font-bold text-slate-900 capitalize">
-                {result.ticket.category} ({result.ai_extraction.subcategory || 'general'})
+                {categoryNames[language][result.ticket.category] || result.ticket.category}
               </span>
             </div>
 
             <div>
-              <span className="text-emerald-700 font-medium block">Priority Score</span>
+              <span className="text-emerald-700 font-medium block">{t('priority')}</span>
               <div className="mt-0.5">
                 <PriorityBadge priority={result.ticket.priority_label} />
                 <span className="text-[10px] text-slate-500 ml-1.5 font-mono">
@@ -293,14 +305,14 @@ export default function SubmitComplaintPage() {
             </div>
 
             <div>
-              <span className="text-emerald-700 font-medium block">Initial Status</span>
+              <span className="text-emerald-700 font-medium block">{t('initialStatus')}</span>
               <div className="mt-0.5">
                 <StatusBadge status={result.ticket.status} />
               </div>
             </div>
 
             <div>
-              <span className="text-emerald-700 font-medium block">Department Assigned</span>
+              <span className="text-emerald-700 font-medium block">{t('assignedQueue')}</span>
               <span className="font-bold text-slate-900">
                 {result.ticket.department_name || 'Ombudsman'}
               </span>
@@ -308,7 +320,7 @@ export default function SubmitComplaintPage() {
           </div>
 
           <div className="mt-3 p-3 bg-white/80 rounded-xl border border-emerald-200 text-xs text-slate-700">
-            <span className="font-bold text-slate-900">AI Summary: </span>
+            <span className="font-bold text-slate-900">{t('aiSummary')}: </span>
             {result.ticket.ai_summary}
           </div>
         </div>
@@ -329,7 +341,7 @@ export default function SubmitComplaintPage() {
         {/* Complaint Description */}
         <div>
           <label htmlFor="description" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-            Complaint Description <span className="text-rose-500">*</span>
+            {t('description')} <span className="text-rose-500">*</span>
           </label>
           <textarea
             id="description"
@@ -337,11 +349,11 @@ export default function SubmitComplaintPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             required
-            placeholder="Describe the issue in detail (e.g., Pothole depth, street light blackout, water pipeline burst, foul garbage accumulation)..."
+            placeholder={t('descriptionPlaceholder')}
             className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm text-slate-900 placeholder:text-slate-400"
           />
           <p className="text-[11px] text-slate-400 mt-1">
-            Please avoid sharing sensitive personal information in your description.
+            {t('descriptionHint')}
           </p>
         </div>
 
@@ -349,7 +361,7 @@ export default function SubmitComplaintPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label htmlFor="location" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Location Landmark / Address
+              {t('landmark')}
             </label>
             <div className="relative">
               <MapPin className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
@@ -358,7 +370,7 @@ export default function SubmitComplaintPage() {
                 type="text"
                 value={locationText}
                 onChange={(e) => setLocationText(e.target.value)}
-                placeholder="e.g. Near Jayanagar 4th Block bus stand"
+                placeholder={t('landmarkPlaceholder')}
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm text-slate-900"
               />
             </div>
@@ -367,14 +379,14 @@ export default function SubmitComplaintPage() {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                GPS Coordinates
+                {t('coordinates')}
               </label>
               <button
                 type="button"
                 onClick={handleUseCurrentLocation}
                 className="text-[11px] text-teal-600 hover:text-teal-700 font-semibold"
               >
-                Use My Location
+                {t('useLocation')}
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -401,7 +413,7 @@ export default function SubmitComplaintPage() {
         {/* Private photo evidence */}
         <div>
           <label htmlFor="photo" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-            Photo evidence (optional)
+            {t('photo')}
           </label>
           <input
             id="photo"
@@ -411,14 +423,14 @@ export default function SubmitComplaintPage() {
             onChange={(e) => setPhoto(e.target.files?.[0] || null)}
             className="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-sm text-slate-900 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-teal-700"
           />
-          <p className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500"><Camera className="h-3.5 w-3.5" /> JPEG, PNG or WebP, up to 5 MB. Stored privately.</p>
+          <p className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500"><Camera className="h-3.5 w-3.5" /> {webPhotoMessages[language].hint}</p>
         </div>
 
         {/* Citizen Contact Details */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
           <div>
             <label htmlFor="citizenName" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Citizen Name (Optional)
+              {t('name')}
             </label>
             <div className="relative">
               <User className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
@@ -435,7 +447,7 @@ export default function SubmitComplaintPage() {
 
           <div>
             <label htmlFor="citizenContact" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Mobile or Email (Optional)
+              {t('contact')}
             </label>
             <div className="relative">
               <Phone className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
@@ -452,12 +464,12 @@ export default function SubmitComplaintPage() {
 
           <div>
             <label htmlFor="language" className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Preferred Language
+              {t('preferredLanguage')}
             </label>
             <select
               id="language"
               value={language}
-              onChange={(e) => setLanguage(e.target.value)}
+              onChange={(e) => setLanguage(e.target.value as UiLanguage)}
               className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 bg-white"
             >
               <option value="en">English</option>
@@ -465,6 +477,14 @@ export default function SubmitComplaintPage() {
               <option value="kn">ಕನ್ನಡ (Kannada)</option>
             </select>
           </div>
+        </div>
+
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="font-semibold">{t('emergency')}</p>
+          <label className="mt-3 flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} required className="mt-1 h-4 w-4 accent-teal-700" />
+            <span>{t('consent')}</span>
+          </label>
         </div>
 
         {/* Submit Button */}
@@ -475,7 +495,7 @@ export default function SubmitComplaintPage() {
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-sm shadow-lg shadow-teal-600/25 transition-all disabled:opacity-50 hover:scale-[1.01]"
           >
             <Send className={`w-4 h-4 ${submitting ? 'animate-spin' : ''}`} />
-            {submitting ? 'Sending your report...' : 'Send report'}
+            {submitting ? t('sending') : t('send')}
           </button>
         </div>
       </form>

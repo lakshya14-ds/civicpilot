@@ -1,4 +1,8 @@
+'use client';
+
 import React from 'react';
+import { useLanguage } from '@/components/LanguageProvider';
+import { priorityNames, statusNames } from '@/lib/i18n/messages';
 
 interface BadgeProps {
   children: React.ReactNode;
@@ -24,53 +28,57 @@ export function Badge({ children, variant = 'default', size = 'sm', className = 
 }
 
 export function StatusBadge({ status }: { status: string }) {
+  const { language } = useLanguage();
   const norm = (status || '').toLowerCase();
+  const label = statusNames[language][norm] || status;
   switch (norm) {
     case 'open':
-      return <Badge variant="info">Open</Badge>;
+      return <Badge variant="info">{label}</Badge>;
     case 'in_progress':
-      return <Badge variant="warning">In Progress</Badge>;
+      return <Badge variant="warning">{label}</Badge>;
     case 'pending_review':
-      return <Badge variant="purple">Needs Review</Badge>;
+      return <Badge variant="purple">{label}</Badge>;
     case 'escalated':
-      return <Badge variant="danger">Escalated (Overdue)</Badge>;
+      return <Badge variant="danger">{label}</Badge>;
     case 'resolved':
-      return <Badge variant="success">Resolved</Badge>;
+      return <Badge variant="success">{label}</Badge>;
     case 'closed':
-      return <Badge variant="default">Closed</Badge>;
+      return <Badge variant="default">{label}</Badge>;
     case 'rejected':
-      return <Badge variant="danger">Rejected</Badge>;
+      return <Badge variant="danger">{label}</Badge>;
     default:
       return <Badge variant="default">{status}</Badge>;
   }
 }
 
 export function PriorityBadge({ priority }: { priority: string }) {
+  const { language } = useLanguage();
   const norm = (priority || '').toLowerCase();
+  const label = priorityNames[language][norm] || priority;
   switch (norm) {
     case 'critical':
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />
-          Critical
+          {label}
         </span>
       );
     case 'high':
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
-          High
+          {label}
         </span>
       );
     case 'medium':
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-          Medium
+          {label}
         </span>
       );
     case 'low':
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
-          Low
+          {label}
         </span>
       );
     default:

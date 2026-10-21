@@ -58,14 +58,20 @@ export default function AnalyticsAuditPage() {
   const [loading, setLoading] = useState(true);
   const [auditSearch, setAuditSearch] = useState('');
   const [eventTypeFilter, setEventTypeFilter] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   const fetchAnalyticsAndAudit = async () => {
     try {
       setLoading(true);
+      setLoadError('');
       const [analyticsRes, auditRes] = await Promise.all([
         fetch('/api/analytics'),
         fetch('/api/audit?limit=100'),
       ]);
+
+      if (!analyticsRes.ok || !auditRes.ok) {
+        throw new Error('City service insights could not be loaded. Please try again.');
+      }
 
       const analyticsData = await analyticsRes.json();
       const auditData = await auditRes.json();
@@ -73,7 +79,7 @@ export default function AnalyticsAuditPage() {
       setData(analyticsData);
       setAuditEvents(auditData.events || []);
     } catch (err) {
-      console.error(err);
+      setLoadError(err instanceof Error ? err.message : 'City service insights could not be loaded.');
     } finally {
       setLoading(false);
     }
@@ -88,6 +94,15 @@ export default function AnalyticsAuditPage() {
       <div className="max-w-7xl mx-auto px-4 py-20 flex flex-col items-center justify-center">
         <RefreshCw className="w-8 h-8 animate-spin text-teal-600 mb-2" />
         <span className="text-xs text-slate-500">Compiling civic analytics and audit trail...</span>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div role="alert" className="max-w-7xl mx-auto px-4 py-16 text-rose-800">
+        <p>{loadError}</p>
+        <button type="button" onClick={fetchAnalyticsAndAudit} className="mt-3 font-semibold underline">Try again</button>
       </div>
     );
   }

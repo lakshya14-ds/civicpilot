@@ -32,6 +32,7 @@ export default function HumanReviewPage() {
   const [reviewerSecret, setReviewerSecret] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [loadError, setLoadError] = useState('');
 
   const selectTicketForReview = (ticket: Complaint) => {
     setSelectedTicket(ticket);
@@ -45,10 +46,15 @@ export default function HumanReviewPage() {
   const fetchReviewQueue = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError('');
       const [ticketsRes, deptsRes] = await Promise.all([
         fetch('/api/complaints?requires_human_review=true&limit=50'),
         fetch('/api/departments'),
       ]);
+
+      if (!ticketsRes.ok || !deptsRes.ok) {
+        throw new Error('The review queue could not be loaded. Please try again.');
+      }
 
       const ticketsData = await ticketsRes.json();
       const deptsData = await deptsRes.json();
@@ -76,7 +82,7 @@ export default function HumanReviewPage() {
         return prev;
       });
     } catch (err) {
-      console.error(err);
+      setLoadError(err instanceof Error ? err.message : 'The review queue could not be loaded.');
     } finally {
       setLoading(false);
     }
@@ -162,7 +168,12 @@ export default function HumanReviewPage() {
         </button>
       </div>
 
-      {loading ? (
+      {loadError ? (
+        <div role="alert" className="bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-6 text-sm">
+          <p>{loadError}</p>
+          <button type="button" onClick={fetchReviewQueue} className="mt-3 font-semibold underline">Try again</button>
+        </div>
+      ) : loading ? (
         <div className="py-20 flex flex-col items-center justify-center text-slate-500">
           <RefreshCw className="w-8 h-8 animate-spin text-purple-600 mb-2" />
           <span className="text-xs font-medium">Scanning review candidates...</span>
@@ -393,7 +404,7 @@ export default function HumanReviewPage() {
               <div className="pt-2 flex flex-wrap items-center justify-end gap-3">
                 <button
                   type="button"
-                  disabled={submitting}
+                  disabled={submitting || !reviewerSecret.trim()}
                   onClick={() => handleReviewAction('rejected')}
                   className="px-4 py-2.5 rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-800 font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
                 >
@@ -403,7 +414,7 @@ export default function HumanReviewPage() {
 
                 <button
                   type="button"
-                  disabled={submitting}
+                  disabled={submitting || !reviewerSecret.trim()}
                   onClick={() => handleReviewAction('modified')}
                   className="px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
                 >
@@ -413,7 +424,7 @@ export default function HumanReviewPage() {
 
                 <button
                   type="button"
-                  disabled={submitting}
+                  disabled={submitting || !reviewerSecret.trim()}
                   onClick={() => handleReviewAction('approved')}
                   className="px-5 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition-colors disabled:opacity-50"
                 >

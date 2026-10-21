@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
     const file = form.get('file');
     if (!(file instanceof File)) return NextResponse.json({ error: 'A photo file is required.' }, { status: 400 });
-    if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'Photo must be 5 MB or less.' }, { status: 413 });
+    if (file.size > 4 * 1024 * 1024) return NextResponse.json({ error: 'Photo must be 4 MB or less.' }, { status: 413 });
     const reference = await saveEvidence(new Uint8Array(await file.arrayBuffer()));
     return NextResponse.json({ reference }, { status: 201 });
   } catch (error) {

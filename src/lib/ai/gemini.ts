@@ -36,6 +36,7 @@ export function deterministicTriageFallback(
   providedLocation?: string
 ): StructuredAiExtraction {
   const lower = rawDescription.toLowerCase();
+  const hasAny = (...terms: string[]) => terms.some((term) => lower.includes(term));
   let category: ComplaintCategory = 'other';
   let subcategory = 'general_complaint';
   let severity = 3;
@@ -46,6 +47,7 @@ export function deterministicTriageFallback(
 
   // Check critical public safety triggers first
   if (
+    hasAny('आग', 'करंट', 'खतरा', 'ಸ್ಪಾರ್ಕ್', 'ಬೆಂಕಿ', 'ವಿದ್ಯುತ್ ತಂತಿ', 'ಅಪಾಯ') ||
     lower.includes('live wire') ||
     lower.includes('sparking') ||
     lower.includes('collapse') ||
@@ -62,6 +64,7 @@ export function deterministicTriageFallback(
   }
 
   if (
+    hasAny('सड़क', 'सड़क', 'गड्ढ', 'ರಸ್ತೆ', 'ಗುಂಡಿ', 'ಹೊಂಡ') ||
     lower.includes('pothole') ||
     lower.includes('road') ||
     lower.includes('asphalt') ||
@@ -70,10 +73,11 @@ export function deterministicTriageFallback(
     lower.includes('divider')
   ) {
     category = 'roads';
-    subcategory = lower.includes('pothole') ? 'pothole' : 'road_repair';
+    subcategory = hasAny('pothole', 'गड्ढ', 'ಗುಂಡಿ', 'ಹೊಂಡ') ? 'pothole' : 'road_repair';
     severity = severity === 5 ? 5 : lower.includes('deep') || lower.includes('accident') ? 4 : 3;
     reasoning = 'Road infrastructure defect identified from complaint text.';
   } else if (
+    hasAny('कचरा', 'गंदगी', 'सफाई', 'ಕಸ', 'ತ್ಯಾಜ್ಯ', 'ಸ್ವಚ್ಛತೆ') ||
     lower.includes('garbage') ||
     lower.includes('trash') ||
     lower.includes('dump') ||
@@ -87,6 +91,7 @@ export function deterministicTriageFallback(
     severity = severity === 5 ? 5 : lower.includes('school') || lower.includes('hospital') ? 4 : 3;
     reasoning = 'Sanitation and solid waste management issue identified.';
   } else if (
+    hasAny('पानी', 'जलापूर्ति', 'पाइप', 'ನೀರು', 'ಕುಡಿಯುವ ನೀರು', 'ಪೈಪ್', 'ಕೊಳವೆ') ||
     lower.includes('water') ||
     lower.includes('pipe') ||
     lower.includes('pipeline') ||
@@ -100,6 +105,7 @@ export function deterministicTriageFallback(
     severity = severity === 5 ? 5 : lower.includes('burst') || lower.includes('flood') ? 5 : 3;
     reasoning = 'Municipal water distribution infrastructure issue.';
   } else if (
+    hasAny('नाला', 'नाली', 'सीवर', 'ಚರಂಡಿ', 'ಒಳಚರಂಡಿ') ||
     lower.includes('drain') ||
     lower.includes('flooding') ||
     lower.includes('manhole') ||
@@ -111,6 +117,7 @@ export function deterministicTriageFallback(
     severity = severity === 5 ? 5 : lower.includes('open manhole') ? 5 : 4;
     reasoning = 'Drainage, sewer overflow, or open manhole hazard detected.';
   } else if (
+    hasAny('बत्ती', 'स्ट्रीटलाइट', 'बिजली', 'ಲೈಟ್', 'ಬೀದಿ ದೀಪ', 'ದೀಪ', 'ವಿದ್ಯುತ್') ||
     lower.includes('light') ||
     lower.includes('streetlight') ||
     lower.includes('lamp') ||
@@ -120,7 +127,7 @@ export function deterministicTriageFallback(
     lower.includes('electric')
   ) {
     category = 'electrical';
-    subcategory = lower.includes('dark') || lower.includes('streetlight') ? 'streetlight_outage' : 'electrical_fault';
+    subcategory = hasAny('dark', 'streetlight', 'बत्ती', 'स्ट्रीटलाइट', 'ಬೀದಿ ದೀಪ', 'ದೀಪ') ? 'streetlight_outage' : 'electrical_fault';
     severity = severity === 5 ? 5 : lower.includes('blackout') || lower.includes('flyover') ? 4 : 3;
     reasoning = 'Public illumination or municipal electrical infrastructure defect.';
   } else if (
@@ -209,7 +216,7 @@ export async function extractComplaintWithAi(
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const model = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+    const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
     const prompt = `You are CivicPilot's expert civic complaint triage engine.
 Analyze the following citizen report.

@@ -3,6 +3,8 @@
 > **Autonomous AI-Powered Civic Complaint Management & Resolution Platform**  
 > *Hardened & Audited • Next.js 16 • Gemini 3.6 Flash • Supabase • n8n • Tailwind CSS*
 
+**Current status (21 October 2026):** The web reporting, tracking, staff review, analytics, private evidence, multilingual UI, and mock agency flows are implemented for the Bengaluru pilot. WhatsApp integration is paused. Demo mode is in-memory and does not preserve reports after restart. Public deployment still requires hosted services and the launch checks in [CIVICPILOT_SPEC.md](CIVICPILOT_SPEC.md).
+
 ---
 
 ## 🌟 Executive Overview
@@ -22,7 +24,7 @@ CivicPilot transforms municipal operations from reactive ticketing into an **aut
 
 ## 🚀 Quick Start (Zero-Setup Demo Mode)
 
-CivicPilot includes an out-of-the-box **Resilient Demo Mode** (`DEMO_MODE=true`). You can run and test the complete system immediately without external API keys or cloud databases.
+CivicPilot includes an in-memory demo mode (`DEMO_MODE=true`) for testing the web journey without external credentials. Set `INTAKE_PROCESSING_MODE=in_app` when n8n is not running.
 
 ### 1. Prerequisites
 - **Node.js**: v18+ (verified on Node.js 24)
@@ -58,44 +60,13 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### 4. Running the Automated Acceptance & Security Regression Test Suite
 
-CivicPilot includes a **23-scenario acceptance & hardening test suite** covering all core workflows, edge cases, and security validations:
+CivicPilot includes a **35-scenario acceptance and security test suite** for the implemented flows:
 
 ```bash
 npm test
 ```
 
-Expected output:
-```text
-================================================================
-🚀 RUNNING CIVICPILOT ACCEPTANCE & HARDENING TEST SUITE
-================================================================
-Scenario 1: Valid complaint creation                ✓ [PASS]
-Scenario 2: Invalid input validation                ✓ [PASS]
-Scenario 3: AI failure / invalid JSON fallback      ✓ [PASS]
-Scenario 4: Low-confidence complaint review routing ✓ [PASS]
-Scenario 5: Critical public safety handling         ✓ [PASS]
-Scenario 6: Duplicate detection and linking         ✓ [PASS]
-Scenario 7: Cross-location separation               ✓ [PASS]
-Scenario 8: Category to Department routing          ✓ [PASS]
-Scenario 9: Unknown category fallback queue         ✓ [PASS]
-Scenario 10: Unauthorized reviewer rejection        ✓ [PASS]
-Scenario 11: Review approval audit event            ✓ [PASS]
-Scenario 12: Overdue ticket escalation              ✓ [PASS]
-Scenario 13: SLA watchdog idempotency               ✓ [PASS]
-Scenario 14: Notification delivery tracking         ✓ [PASS]
-Scenario 15: Citizen feedback & verified closure    ✓ [PASS]
-Scenario 16: Negative intake failure handling       ✓ [PASS]
-Scenario 17: Idempotency duplicate prevention       ✓ [PASS]
-Scenario 18: Dashboard analytics metrics reflection ✓ [PASS]
-Scenario 19: Storage mode explicit labeling         ✓ [PASS]
-Scenario 20: Production mode (no silent fallback)   ✓ [PASS]
-Scenario 21: Priority score & crowd boost formula   ✓ [PASS]
-Scenario 22: Deduplication heuristic validation     ✓ [PASS]
-Scenario 23: AI fallback safety preservation        ✓ [PASS]
-================================================================
-🏁 TEST RESULTS: 53 PASSED | 0 FAILED
-================================================================
-```
+The current suite reports 104 passing assertions across 35 scenarios.
 
 ---
 
@@ -176,6 +147,8 @@ Access the n8n UI at `http://localhost:5678`, navigate to **Workflows → Import
 
 ## 📦 Deployment Instructions (Vercel)
 
+See [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md) for the Vercel preview setup, exact environment variables, and checks before a public pilot.
+
 1. Push this repository to GitHub.
 2. Import project into [Vercel](https://vercel.com).
 3. Configure Environment Variables from `.env.example`:
@@ -184,4 +157,4 @@ Access the n8n UI at `http://localhost:5678`, navigate to **Workflows → Import
    - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
    - `SUPABASE_SECRET_KEY` (server only)
    - `GEMINI_API_KEY`
-4. Deploy! Next.js compiles all 18 routes cleanly via `npm run build`.
+4. Run `npm run build`, `npm run lint`, `npm test`, and `npm run test:channels`. Verify the hosted Supabase and n8n flows with synthetic reports before opening intake to users.

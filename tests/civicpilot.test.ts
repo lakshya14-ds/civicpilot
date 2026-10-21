@@ -28,6 +28,8 @@ import { POST as seedHandler } from '../src/app/api/seed/route';
 import { POST as feedbackHandler } from '../src/app/api/feedback/route';
 import { POST as escalateHandler } from '../src/app/api/escalate/route';
 import { POST as reviewHandler } from '../src/app/api/review/route';
+import { PATCH as patchComplaintHandler } from '../src/app/api/complaints/[id]/route';
+import { POST as mediaHandler } from '../src/app/api/media/route';
 
 let passed = 0;
 let failed = 0;
@@ -775,6 +777,30 @@ async function runTestSuite() {
   assert(constantTimeCompare('strong-secret-1234', 'strong-secret-1235') === false, 'Mismatched secrets return false');
   assert(constantTimeCompare('strong-secret-1234', 'short') === false, 'Different length secrets return false');
   assert(constantTimeCompare('', '') === false, 'Empty strings return false (defense against empty bypass)');
+
+  console.log('\nScenario 33: Hindi and Kannada fallback category hints');
+  const kannadaRoad = deterministicTriageFallback('ಜಯನಗರದಲ್ಲಿ ರಸ್ತೆಯ ಮೇಲೆ ದೊಡ್ಡ ಗುಂಡಿ ಇದೆ.', 'Jayanagar, Bengaluru');
+  assert(kannadaRoad.category === 'roads' && kannadaRoad.subcategory === 'pothole', 'Kannada pothole report receives a road category hint');
+  const hindiWaste = deterministicTriageFallback('बाजार के पास कचरा जमा है।', 'Market road, Bengaluru');
+  assert(hindiWaste.category === 'sanitation', 'Hindi waste report receives a sanitation category hint');
+  const kannadaLight = deterministicTriageFallback('ನಮ್ಮ ಬೀದಿ ದೀಪ ಕೆಲಸ ಮಾಡುತ್ತಿಲ್ಲ.', 'Malleswaram, Bengaluru');
+  assert(kannadaLight.category === 'electrical' && kannadaLight.subcategory === 'streetlight_outage', 'Kannada streetlight report receives a streetlight category hint');
+
+  console.log('\nScenario 34: Demo status update boundary');
+  const unauthorizedPatch = await patchComplaintHandler(
+    createReq(`/api/complaints/${res1.ticket.id}`, { method: 'PATCH', body: { status: 'in_progress' } }),
+    { params: Promise.resolve({ id: res1.ticket.id }) },
+  );
+  assert(unauthorizedPatch.status === 401, 'Demo PATCH rejects requests without explicit authorization');
+
+  console.log('\nScenario 35: Vercel web upload size boundary');
+  const oversizedPhoto = new FormData();
+  oversizedPhoto.set('file', new File([new Uint8Array(4 * 1024 * 1024 + 1)], 'large.png', { type: 'image/png' }));
+  const oversizedResponse = await mediaHandler(new NextRequest('http://localhost:3000/api/media', {
+    method: 'POST',
+    body: oversizedPhoto,
+  }));
+  assert(oversizedResponse.status === 413, 'Web media endpoint rejects photos above 4 MB before storage');
 
   console.log('\n================================================================');
   console.log(`🏁 TEST RESULTS: ${passed} PASSED | ${failed} FAILED`);
