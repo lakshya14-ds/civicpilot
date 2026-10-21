@@ -25,7 +25,8 @@ import { categoryNames, detailMessages, priorityNames, statusNames, trackingMess
 
 function TicketDetailsContent() {
   const { language, t } = useLanguage();
-  const copy = detailMessages[language];
+  const safeLang = (language && detailMessages[language] ? language : 'en') as UiLanguage;
+  const copy = detailMessages[safeLang] || detailMessages.en;
   const params = useParams();
   const ticketId = params.id as string;
 

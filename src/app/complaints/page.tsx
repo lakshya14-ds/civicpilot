@@ -20,7 +20,8 @@ import { categoryNames, priorityNames, statusNames, trackingMessages } from '@/l
 
 export default function ComplaintsPage() {
   const { language, t } = useLanguage();
-  const copy = trackingMessages[language];
+  const safeLang = (language && trackingMessages[language] ? language : 'en') as UiLanguage;
+  const copy = trackingMessages[safeLang] || trackingMessages.en;
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,7 +159,7 @@ export default function ComplaintsPage() {
               <option value="">{copy.allStatuses}</option>
               {Object.entries(STATUS_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>
-                  {statusNames[language][k] || v}
+                  {statusNames[safeLang]?.[k] || statusNames.en?.[k] || v}
                 </option>
               ))}
             </select>
@@ -180,7 +181,7 @@ export default function ComplaintsPage() {
               <option value="">{copy.allPriorities}</option>
               {Object.entries(PRIORITY_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>
-                  {priorityNames[language][k] || v}
+                  {priorityNames[safeLang]?.[k] || priorityNames.en?.[k] || v}
                 </option>
               ))}
             </select>
@@ -202,7 +203,7 @@ export default function ComplaintsPage() {
               <option value="">{copy.allCategories}</option>
               {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>
-                  {categoryNames[language][k] || v}
+                  {categoryNames[safeLang]?.[k] || categoryNames.en?.[k] || v}
                 </option>
               ))}
             </select>
@@ -311,7 +312,7 @@ export default function ComplaintsPage() {
 
                       {/* Category */}
                       <td className="px-5 py-4 text-xs font-medium text-slate-800 whitespace-nowrap">
-                        {categoryNames[language][item.category] || CATEGORY_LABELS[item.category] || item.category}
+                        {categoryNames[safeLang]?.[item.category] || categoryNames.en?.[item.category] || CATEGORY_LABELS[item.category] || item.category}
                       </td>
 
                       {/* Priority */}
@@ -446,7 +447,7 @@ export default function ComplaintsPage() {
                   <span className="text-slate-500 block mb-1">Priority</span>
                   <PriorityBadge priority={selectedTicket.priority_label} />
                   <span className="text-[10px] text-slate-400 block mt-1 font-mono">
-                    Score: {selectedTicket.priority_score.toFixed(2)}
+                    Score: {(selectedTicket.priority_score ?? 0).toFixed(2)}
                   </span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
