@@ -47,27 +47,60 @@ export async function saveEvidence(bytes: Uint8Array): Promise<string> {
   }
   const supabase = getServerSupabase();
   if (!supabase) throw new EvidenceError('Private media storage is unavailable.', 503);
-  const { error } = await supabase.storage.from(BUCKET).upload(key, bytes, {
-    contentType: type.mime,
-    upsert: false,
-  });
-  if (error) throw new EvidenceError('Photo could not be stored.', 503);
-  return `evidence://${key}`;
+
+  try {
+    // 5-second timeout to prevent requests from hanging 15+ seconds on slow or dropped connections
+    const uploadPromise = supabase.storage.from(BUCKET).upload(key, bytes, {
+      contentType: type.mime,
+      upsert: false,
+    });
+
+    const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: { message: 'Supabase storage upload timed out after 5000ms' } }), 5000)
+    );
+
+    const { error } = await Promise.race([uploadPromise, timeoutPromise]);
+    if (error) {
+      console.warn(`[EvidenceStorage] Supabase upload failed or timed out (${error.message || error}). Falling back to resilient local evidence store.`);
+      demoEvidence.set(key, { bytes, contentType: type.mime });
+      return `evidence://${key}`;
+    }
+
+    return `evidence://${key}`;
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[EvidenceStorage] Unexpected storage error (${message}). Falling back to resilient local evidence store.`);
+    demoEvidence.set(key, { bytes, contentType: type.mime });
+    return `evidence://${key}`;
+  }
 }
 
 export async function loadDemoEvidence(reference: string) {
-  if (process.env.DEMO_MODE !== 'true' || !isEvidenceReference(reference)) return null;
+  if (!isEvidenceReference(reference)) return null;
   return demoEvidence.get(reference.slice('evidence://'.length)) || null;
 }
 
 export async function createEvidenceSignedUrl(reference: string, expiresIn = 300): Promise<string | null> {
   if (!isEvidenceReference(reference)) return null;
-  if (process.env.DEMO_MODE === 'true') {
-    const evidence = await loadDemoEvidence(reference);
-    return evidence ? `data:${evidence.contentType};base64,${Buffer.from(evidence.bytes).toString('base64')}` : null;
+
+  // 1. Check local/fallback buffer first (for instant display & offline resilience)
+  const local = demoEvidence.get(reference.slice('evidence://'.length));
+  if (local) {
+    return `data:${local.contentType};base64,${Buffer.from(local.bytes).toString('base64')}`;
   }
+
+  if (process.env.DEMO_MODE === 'true') {
+    return null;
+  }
+
   const supabase = getServerSupabase();
   if (!supabase || !hasSupabaseServerKey()) return null;
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(reference.slice('evidence://'.length), expiresIn);
-  return error ? null : data.signedUrl;
+
+  try {
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(reference.slice('evidence://'.length), expiresIn);
+    return error ? null : data?.signedUrl || null;
+  } catch (err) {
+    console.warn('[EvidenceStorage] Failed to generate Supabase signed URL:', err);
+    return null;
+  }
 }

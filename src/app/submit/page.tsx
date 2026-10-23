@@ -72,6 +72,60 @@ const SAMPLE_PRESETS: SamplePreset[] = [
   },
 ];
 
+async function optimizeImageForUpload(file: File): Promise<File> {
+  if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
+    return file;
+  }
+  // If file is already smaller than 600 KB, upload directly without re-compression
+  if (file.size <= 600 * 1024) {
+    return file;
+  }
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const maxDim = 1600;
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(file);
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (blob && blob.size < file.size) {
+              resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+            } else {
+              resolve(file);
+            }
+          },
+          'image/jpeg',
+          0.82
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+      img.src = url;
+    } catch {
+      resolve(file);
+    }
+  });
+}
+
 export default function SubmitComplaintPage() {
   const { language, setLanguage, t } = useLanguage();
   const { isStaff, authReady } = useStaffAuth();
@@ -140,8 +194,9 @@ export default function SubmitComplaintPage() {
 
       let imageReference: string | null = null;
       if (photo) {
+        const fileToUpload = await optimizeImageForUpload(photo);
         const upload = new FormData();
-        upload.set('file', photo);
+        upload.set('file', fileToUpload);
         const uploadResponse = await fetch('/api/media', { method: 'POST', body: upload });
         const uploadData = await uploadResponse.json();
         if (!uploadResponse.ok || !uploadData.reference) {

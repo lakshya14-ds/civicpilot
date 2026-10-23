@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">CivicPilot data flow diagram</title>
+  <desc id="desc">Citizen web report flows through Next.js validation and n8n intake, Gemini extraction and deterministic decision rules, Supabase persistence, staff action, SLA monitoring and citizen feedback. WhatsApp and official municipal dispatch are not live.</desc>
+  <defs>
+    <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2.3" fill="#31434d"/><circle cx="11" cy="11" r="2.3" fill="#31434d"/></pattern>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="7" stdDeviation="11" flood-color="#101d24" flood-opacity=".22"/></filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#20bac5"/></marker>
+    <style>
+      .title { font: 82px Georgia, 'Times New Roman', serif; fill: #67d7dc; letter-spacing: -2px; }
+      .stage { font: bold 22px Arial, sans-serif; fill: #41c5cd; letter-spacing: 1px; }
+      .card { fill: #f8faf9; rx: 16; filter: url(#shadow); }
+      .dark { fill: #0e304d; rx: 16; filter: url(#shadow); }
+      .head { font: bold 26px Arial, sans-serif; fill: #0e3150; }
+      .copy { font: 21px Arial, sans-serif; fill: #49677f; }
+      .white { fill: white; }
+      .pale { fill: #d9e8ee; }
+      .note { font: 21px Arial, sans-serif; fill: #d6edef; }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="#20313c"/>
+  <rect width="1600" height="900" fill="url(#dots)" opacity=".8"/>
+  <text class="title" x="30" y="112">Data Flow Diagram</text>
+
+  <text class="stage" x="32" y="195">INPUTS</text>
+  <text class="stage" x="421" y="195">UNDERSTAND</text>
+  <text class="stage" x="811" y="195">DECIDE</text>
+  <text class="stage" x="1201" y="195">ACT + CLOSE THE LOOP</text>
+
+  <rect class="card" x="31" y="222" width="346" height="120"/>
+  <text class="head" x="54" y="265"><tspan x="54">Citizen web form</tspan></text>
+  <text class="copy" x="54" y="299">Issue in English, Hindi, Kannada</text>
+  <rect class="card" x="31" y="360" width="346" height="120"/>
+  <text class="head" x="54" y="403">Location + photo</text>
+  <text class="copy" x="54" y="437">GPS / landmark; private evidence</text>
+  <rect class="card" x="31" y="498" width="346" height="120"/>
+  <text class="head" x="54" y="541">Citizen consent</text>
+  <text class="copy" x="54" y="575">Pilot notice before submission</text>
+
+  <rect class="card" x="421" y="222" width="346" height="120"/>
+  <text class="head" x="444" y="265">Next.js intake API</text>
+  <text class="copy" x="444" y="299">Validate and rate-limit request</text>
+  <rect class="dark" x="421" y="360" width="346" height="120"/>
+  <text class="head white" x="444" y="403">n8n intake webhook</text>
+  <text class="copy pale" x="444" y="437">Mask PII; run AI + persistence</text>
+  <rect class="card" x="421" y="498" width="346" height="120"/>
+  <text class="head" x="444" y="541">Gemini extraction</text>
+  <text class="copy" x="444" y="575">Category, severity, confidence</text>
+
+  <rect class="card" x="811" y="222" width="346" height="120"/>
+  <text class="head" x="834" y="265">Duplicate check</text>
+  <text class="copy" x="834" y="299">Category + location + text</text>
+  <rect class="dark" x="811" y="360" width="346" height="120"/>
+  <text class="head white" x="834" y="403">Priority + routing</text>
+  <text class="copy pale" x="834" y="437">Safety, crowd, SLA; pilot queue</text>
+  <rect class="card" x="811" y="498" width="346" height="120"/>
+  <text class="head" x="834" y="541">Review gate</text>
+  <text class="copy" x="834" y="575">Low confidence / safety / scope</text>
+
+  <rect class="card" x="1201" y="222" width="368" height="120"/>
+  <text class="head" x="1224" y="265">Supabase record</text>
+  <text class="copy" x="1224" y="299">Ticket, evidence, audit events</text>
+  <rect class="card" x="1201" y="360" width="368" height="120"/>
+  <text class="head" x="1224" y="403">Staff action</text>
+  <text class="copy" x="1224" y="437">Review, assign, update status</text>
+  <rect class="card" x="1201" y="498" width="368" height="120"/>
+  <text class="head" x="1224" y="541">SLA + citizen feedback</text>
+  <text class="copy" x="1224" y="575">Private tracking; confirm/reopen</text>
+
+  <path d="M381 420 H413 M771 420 H803 M1161 420 H1193" stroke="#20bac5" stroke-width="5" marker-end="url(#arrow)"/>
+
+  <rect x="31" y="668" width="1538" height="100" rx="17" fill="#dceff0" stroke="#25b7c0" stroke-width="3"/>
+  <text class="head" x="55" y="709">Outcome loop</text>
+  <text class="copy" x="55" y="740">Citizen feedback updates the same ticket and audit trail; unresolved reports reopen for staff action.</text>
+  <text class="note" x="32" y="831">LOCAL PILOT  ·  n8n intake tested locally  ·  Email/SMS delivery may be simulated</text>
+  <text class="note" x="32" y="864">NOT LIVE  ·  WhatsApp intake  ·  Official municipal dispatch</text>
+</svg>

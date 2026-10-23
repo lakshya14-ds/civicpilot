@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
     const reference = await saveEvidence(new Uint8Array(await file.arrayBuffer()));
     return NextResponse.json({ reference }, { status: 201 });
   } catch (error) {
+    console.error('[POST /api/media] Photo upload error:', error);
     const status = error instanceof EvidenceError ? error.status : 400;
     const message = error instanceof EvidenceError ? error.message : 'Invalid photo upload.';
     return NextResponse.json({ error: message }, { status });

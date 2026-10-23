@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">CivicPilot AI-assisted workflow</title>
+  <desc id="desc">Five steps from citizen report to AI interpretation, deterministic decision, staff action and SLA and citizen monitoring. Supporting cards describe decision rules, human review gates and the outcome loop.</desc>
+  <defs>
+    <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2.3" fill="#31434d"/><circle cx="11" cy="11" r="2.3" fill="#31434d"/></pattern>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="7" stdDeviation="11" flood-color="#101d24" flood-opacity=".22"/></filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#20bac5"/></marker>
+    <style>
+      .title { font: 82px Georgia, 'Times New Roman', serif; fill: #67d7dc; letter-spacing: -2px; }
+      .card { fill: #f8faf9; rx: 17; filter: url(#shadow); }
+      .dark { fill: #0e304d; rx: 17; filter: url(#shadow); }
+      .head { font: bold 30px Arial, sans-serif; fill: #087b84; }
+      .darkhead { font: bold 30px Arial, sans-serif; fill: white; }
+      .stepcopy { font: 23px Arial, sans-serif; fill: #173b58; }
+      .whitecopy { fill: #dcebf1; }
+      .bullet { font: 23px Arial, sans-serif; fill: #173b58; }
+      .dot { fill: #109eaa; }
+      .note { font: 20px Arial, sans-serif; fill: #d6edef; }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="#20313c"/>
+  <rect width="1600" height="900" fill="url(#dots)" opacity=".8"/>
+  <text class="title" x="30" y="112">AI-Assisted Workflow</text>
+
+  <rect class="card" x="30" y="184" width="254" height="190"/>
+  <text class="head" x="56" y="235">Report</text>
+  <text class="stepcopy" x="56" y="283"><tspan x="56">Citizen submits</tspan><tspan x="56" dy="32">text, location,</tspan><tspan x="56" dy="32">optional photo</tspan></text>
+  <rect class="card" x="343" y="184" width="254" height="190"/>
+  <text class="head" x="369" y="235">Interpret</text>
+  <text class="stepcopy" x="369" y="283"><tspan x="369">n8n + Gemini</tspan><tspan x="369" dy="32">produce structured</tspan><tspan x="369" dy="32">issue details</tspan></text>
+  <rect class="dark" x="656" y="184" width="254" height="190"/>
+  <text class="darkhead" x="682" y="235">Decide</text>
+  <text class="stepcopy whitecopy" x="682" y="283"><tspan x="682">Rules check</tspan><tspan x="682" dy="32">duplicates, priority</tspan><tspan x="682" dy="32">and pilot queue</tspan></text>
+  <rect class="card" x="969" y="184" width="254" height="190"/>
+  <text class="head" x="995" y="235">Review + act</text>
+  <text class="stepcopy" x="995" y="283"><tspan x="995">Staff checks flags,</tspan><tspan x="995" dy="32">updates ticket</tspan><tspan x="995" dy="32">and adds evidence</tspan></text>
+  <rect class="card" x="1282" y="184" width="288" height="190"/>
+  <text class="head" x="1308" y="235">Monitor</text>
+  <text class="stepcopy" x="1308" y="283"><tspan x="1308">SLA watchdog;</tspan><tspan x="1308" dy="32">citizen confirms</tspan><tspan x="1308" dy="32">or reopens</tspan></text>
+  <path d="M289 278 H333 M602 278 H646 M915 278 H959 M1228 278 H1272" stroke="#20bac5" stroke-width="5" marker-end="url(#arrow)"/>
+
+  <rect class="card" x="30" y="410" width="493" height="390"/>
+  <text class="head" x="58" y="462">Decision rules</text>
+  <circle class="dot" cx="61" cy="518" r="5"/><text class="bullet" x="82" y="526">Mask PII before AI processing</text>
+  <circle class="dot" cx="61" cy="578" r="5"/><text class="bullet" x="82" y="586">Compare category, location and text</text>
+  <circle class="dot" cx="61" cy="638" r="5"/><text class="bullet" x="82" y="646">Score severity, safety, crowd, SLA</text>
+  <circle class="dot" cx="61" cy="698" r="5"/><text class="bullet" x="82" y="706">Route to provisional pilot queue</text>
+  <circle class="dot" cx="61" cy="758" r="5"/><text class="bullet" x="82" y="766">Use rule fallback if AI fails</text>
+
+  <rect class="card" x="553" y="410" width="493" height="390"/>
+  <text class="head" x="581" y="462">Human review gate</text>
+  <circle class="dot" cx="584" cy="518" r="5"/><text class="bullet" x="605" y="526">Confidence below 70% is flagged</text>
+  <circle class="dot" cx="584" cy="578" r="5"/><text class="bullet" x="605" y="586">Safety flags can require review</text>
+  <circle class="dot" cx="584" cy="638" r="5"/><text class="bullet" x="605" y="646">Out-of-scope issues need routing</text>
+  <circle class="dot" cx="584" cy="698" r="5"/><text class="bullet" x="605" y="706">Officer approves, edits or rejects</text>
+  <circle class="dot" cx="584" cy="758" r="5"/><text class="bullet" x="605" y="766">Actions are written to audit trail</text>
+
+  <rect class="card" x="1076" y="410" width="494" height="390"/>
+  <text class="head" x="1104" y="462">Outcome loop</text>
+  <circle class="dot" cx="1107" cy="518" r="5"/><text class="bullet" x="1128" y="526">Supabase stores ticket + evidence</text>
+  <circle class="dot" cx="1107" cy="578" r="5"/><text class="bullet" x="1128" y="586">Overdue tickets escalate in pilot</text>
+  <circle class="dot" cx="1107" cy="638" r="5"/><text class="bullet" x="1128" y="646">Citizen tracks with private code</text>
+  <circle class="dot" cx="1107" cy="698" r="5"/><text class="bullet" x="1128" y="706">Feedback can confirm or reopen</text>
+  <circle class="dot" cx="1107" cy="758" r="5"/><text class="bullet" x="1128" y="766">Unresolved cases return to staff</text>
+
+  <text class="note" x="32" y="850">LOCAL PILOT  ·  Intake workflow tested  ·  Other n8n workflows defined for review, SLA and feedback</text>
+</svg>

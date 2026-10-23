@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">CivicPilot solution</title>
+  <desc id="desc">CivicPilot is a Bengaluru civic issue reporting pilot. Citizens submit multilingual web reports with optional photos and locations, AI-assisted triage classifies and prioritizes them, staff review and update cases, and SLA checks and citizen feedback close the loop.</desc>
+  <defs>
+    <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="2.3" fill="#31434d"/><circle cx="11" cy="11" r="2.3" fill="#31434d"/></pattern>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#101d24" flood-opacity=".22"/></filter>
+    <style>
+      .title { font: 90px Georgia, 'Times New Roman', serif; fill: #67d7dc; letter-spacing: -2px; }
+      .intro { font: 26px Arial, sans-serif; fill: #e5f1f2; }
+      .card { fill: #f8faf9; rx: 22; filter: url(#shadow); }
+      .cardhead { font: bold 31px Arial, sans-serif; fill: #087b84; }
+      .body { font: 25px Arial, sans-serif; fill: #173b58; }
+      .step { font: bold 26px Arial, sans-serif; fill: #0e3150; }
+      .stepbody { font: 23px Arial, sans-serif; fill: #173b58; }
+      .number { fill: #119ca7; }
+      .numtext { font: bold 24px Arial, sans-serif; fill: white; text-anchor: middle; dominant-baseline: middle; }
+      .dot { fill: #109eaa; }
+      .note { font: 20px Arial, sans-serif; fill: #d6edef; }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="#20313c"/>
+  <rect width="1600" height="900" fill="url(#dots)" opacity=".8"/>
+  <text class="title" x="32" y="111">Solution</text>
+  <text class="intro" x="34" y="170">CivicPilot helps Bengaluru residents report issues and privately track progress.</text>
+  <text class="intro" x="34" y="209">AI-assisted triage and staff review keep each case in a traceable pilot workflow.</text>
+
+  <rect class="card" x="32" y="255" width="500" height="545"/>
+  <text class="cardhead" x="62" y="310">The problem</text>
+  <circle class="dot" cx="65" cy="368" r="5"/>
+  <text class="body" x="90" y="377"><tspan x="90">Residents need a clear way to</tspan><tspan x="90" dy="35">report local issues and follow up.</tspan></text>
+  <circle class="dot" cx="65" cy="480" r="5"/>
+  <text class="body" x="90" y="489"><tspan x="90">Repeated reports can hide a</tspan><tspan x="90" dy="35">shared problem or its urgency.</tspan></text>
+  <circle class="dot" cx="65" cy="592" r="5"/>
+  <text class="body" x="90" y="601"><tspan x="90">Manual triage and unclear</tspan><tspan x="90" dy="35">ownership delay decisions.</tspan></text>
+  <circle class="dot" cx="65" cy="704" r="5"/>
+  <text class="body" x="90" y="713"><tspan x="90">Without feedback, resolution</tspan><tspan x="90" dy="35">may go unverified.</tspan></text>
+
+  <rect class="card" x="560" y="255" width="1008" height="545"/>
+  <text class="cardhead" x="590" y="310">How CivicPilot responds</text>
+
+  <circle class="number" cx="618" cy="376" r="28"/><text class="numtext" x="618" y="377">1</text>
+  <text class="step" x="666" y="385">Capture</text>
+  <text class="stepbody" x="885" y="369"><tspan x="885">Web report in English, Hindi or Kannada;</tspan><tspan x="885" dy="30">add a landmark, GPS and optional photo.</tspan></text>
+
+  <circle class="number" cx="618" cy="472" r="28"/><text class="numtext" x="618" y="473">2</text>
+  <text class="step" x="666" y="481">Understand</text>
+  <text class="stepbody" x="885" y="465"><tspan x="885">n8n + Gemini extract category, severity,</tspan><tspan x="885" dy="30">confidence and safety flags.</tspan></text>
+
+  <circle class="number" cx="618" cy="568" r="28"/><text class="numtext" x="618" y="569">3</text>
+  <text class="step" x="666" y="577">Decide</text>
+  <text class="stepbody" x="885" y="561"><tspan x="885">Rules link likely duplicates, score priority</tspan><tspan x="885" dy="30">and select a provisional pilot queue.</tspan></text>
+
+  <circle class="number" cx="618" cy="664" r="28"/><text class="numtext" x="618" y="665">4</text>
+  <text class="step" x="666" y="673">Act</text>
+  <text class="stepbody" x="885" y="657"><tspan x="885">Supabase stores the ticket; staff review</tspan><tspan x="885" dy="30">flagged cases and update progress.</tspan></text>
+
+  <circle class="number" cx="618" cy="760" r="28"/><text class="numtext" x="618" y="761">5</text>
+  <text class="step" x="666" y="769">Verify</text>
+  <text class="stepbody" x="885" y="753"><tspan x="885">SLA checks flag overdue work; citizens</tspan><tspan x="885" dy="30">confirm resolution or reopen the report.</tspan></text>
+
+  <text class="note" x="34" y="854">LOCAL PILOT  ·  Citizen web intake + staff dashboard  ·  WhatsApp and official municipal dispatch are not live</text>
+</svg>

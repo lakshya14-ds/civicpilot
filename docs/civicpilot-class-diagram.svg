@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">CivicPilot class and entity diagram</title>
+  <desc id="desc">Database-backed classes for departments, complaints, complaint events, AI decisions, review actions, and notifications. Complaints reference departments and can reference another complaint as a duplicate. Events, decisions, review actions, and notifications reference complaints.</desc>
+  <defs>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#16344d" flood-opacity=".12"/></filter>
+    <style>
+      .title { font: bold 47px Arial, sans-serif; fill: #183b58; }
+      .subtitle { font: 21px Arial, sans-serif; fill: #5f7180; }
+      .box { fill: #fff; stroke: #cfdae2; stroke-width: 2; rx: 15; filter: url(#shadow); }
+      .bar { fill: #183b58; }
+      .bartext { font: bold 26px Arial, sans-serif; fill: #fff; }
+      .field { font: 22px Arial, sans-serif; fill: #17374f; }
+      .key { font: bold 21px Arial, sans-serif; fill: #087b84; }
+      .rel { fill: none; stroke: #137c98; stroke-width: 3; }
+      .reltext { font: 18px Arial, sans-serif; fill: #607486; }
+      .foot { font: 19px Arial, sans-serif; fill: #627789; }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="#f7fafb"/>
+  <text class="title" x="35" y="72">CivicPilot Class Diagram</text>
+  <text class="subtitle" x="36" y="105">Core database entities and their relationships in the Bengaluru pilot</text>
+
+  <!-- Relationship paths sit beneath the entity cards. -->
+  <path class="rel" d="M465 286 H585"/>
+  <text class="reltext" x="485" y="271">1</text><text class="reltext" x="538" y="271">0..*</text>
+  <text class="reltext" x="481" y="316">assigned to</text>
+  <path class="rel" d="M1015 286 H1135"/>
+  <text class="reltext" x="1025" y="271">1</text><text class="reltext" x="1088" y="271">0..*</text>
+  <text class="reltext" x="1042" y="316">logs</text>
+  <path class="rel" d="M800 425 V492 H250 V565 M800 492 V565 M800 492 H1350 V565"/>
+  <text class="reltext" x="211" y="550">0..*</text>
+  <text class="reltext" x="762" y="550">0..*</text>
+  <text class="reltext" x="1312" y="550">0..*</text>
+
+  <!-- Departments -->
+  <rect class="box" x="35" y="130" width="430" height="295"/>
+  <path class="bar" d="M50 130 H450 Q465 130 465 145 V194 H35 V145 Q35 130 50 130 Z"/>
+  <text class="bartext" x="56" y="171">DEPARTMENTS</text>
+  <text class="field" x="56" y="229"><tspan class="key">id</tspan><tspan> : UUID  [PK]</tspan></text>
+  <text class="field" x="56" y="265">name, slug : text</text>
+  <text class="field" x="56" y="301">supported_categories : text[]</text>
+  <text class="field" x="56" y="337">default_sla_hours : integer</text>
+  <text class="field" x="56" y="373">active : boolean</text>
+
+  <!-- Complaints -->
+  <rect class="box" x="585" y="130" width="430" height="295"/>
+  <path class="bar" d="M600 130 H1000 Q1015 130 1015 145 V194 H585 V145 Q585 130 600 130 Z"/>
+  <text class="bartext" x="606" y="171">COMPLAINTS</text>
+  <text class="field" x="606" y="229"><tspan class="key">id</tspan><tspan> : UUID  [PK]</tspan></text>
+  <text class="field" x="606" y="265">ticket_number : text  [unique]</text>
+  <text class="field" x="606" y="301">status, priority_label : text</text>
+  <text class="field" x="606" y="337"><tspan class="key">department_id</tspan><tspan> : UUID  [FK?]</tspan></text>
+  <text class="field" x="606" y="373"><tspan class="key">duplicate_of</tspan><tspan> : UUID  [self FK?]</tspan></text>
+  <text class="field" x="606" y="409">sla_due_at, citizen_rating</text>
+
+  <!-- Events -->
+  <rect class="box" x="1135" y="130" width="430" height="295"/>
+  <path class="bar" d="M1150 130 H1550 Q1565 130 1565 145 V194 H1135 V145 Q1135 130 1150 130 Z"/>
+  <text class="bartext" x="1156" y="171">COMPLAINT EVENTS</text>
+  <text class="field" x="1156" y="229"><tspan class="key">id</tspan><tspan> : UUID  [PK]</tspan></text>
+  <text class="field" x="1156" y="265"><tspan class="key">complaint_id</tspan><tspan> : UUID  [FK]</tspan></text>
+  <text class="field" x="1156" y="301">event_type, actor : text</text>
+  <text class="field" x="1156" y="337">description : text</text>
+  <text class="field" x="1156" y="373">created_at : timestamp</text>
+
+  <!-- AI decisions -->
+  <rect class="box" x="35" y="565" width="430" height="255"/>
+  <path class="bar" d="M50 565 H450 Q465 565 465 580 V629 H35 V580 Q35 565 50 565 Z"/>
+  <text class="bartext" x="56" y="606">AI DECISIONS</text>
+  <text class="field" x="56" y="665"><tspan class="key">id</tspan><tspan> : UUID  [PK]</tspan></text>
+  <text class="field" x="56" y="701"><tspan class="key">complaint_id</tspan><tspan> : UUID  [FK?]</tspan></text>
+  <text class="field" x="56" y="737">model_name, decision_type : text</text>
+  <text class="field" x="56" y="773">structured_output : JSONB</text>
+  <text class="field" x="56" y="809">confidence : numeric</text>
+
+  <!-- Review actions -->
+  <rect class="box" x="585" y="565" width="430" height="255"/>
+  <path class="bar" d="M600 565 H1000 Q1015 565 1015 580 V629 H585 V580 Q585 565 600 565 Z"/>
+  <text class="bartext" x="606" y="606">REVIEW ACTIONS</text>
+  <text class="field" x="606" y="665"><tspan class="key">id</tspan><tspan> : UUID  [PK]</tspan></text>
+  <text class="field" x="606" y="701"><tspan class="key">complaint_id</tspan><tspan> : UUID  [FK]</tspan></text>
+  <text class="field" x="606" y="737">reviewer_id, action : text</text>
+  <text class="field" x="606" y="773">updated_values : JSONB</text>
+  <text class="field" x="606" y="809">created_at : timestamp</text>
+
+  <!-- Notifications -->
+  <rect class="box" x="1135" y="565" width="430" height="255"/>
+  <path class="bar" d="M1150 565 H1550 Q1565 565 1565 580 V629 H1135 V580 Q1135 565 1150 565 Z"/>
+  <text class="bartext" x="1156" y="606">NOTIFICATIONS</text>
+  <text class="field" x="1156" y="665"><tspan class="key">id</tspan><tspan> : UUID  [PK]</tspan></text>
+  <text class="field" x="1156" y="701"><tspan class="key">complaint_id</tspan><tspan> : UUID  [FK?]</tspan></text>
+  <text class="field" x="1156" y="737">channel, message_type : text</text>
+  <text class="field" x="1156" y="773">status : text</text>
+  <text class="field" x="1156" y="809">delivered_at : timestamp</text>
+
+  <text class="foot" x="36" y="867">PK = primary key  ·  FK = foreign key  ·  ? = nullable  ·  duplicate_of references COMPLAINTS.id  ·  notification status can be simulated</text>
+</svg>

@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:all": "node scripts/run-all.cjs",
+    "n8n": "node scripts/run-n8n.cjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

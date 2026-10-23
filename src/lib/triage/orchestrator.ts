@@ -87,7 +87,7 @@ export async function processComplaintIntake(
       );
     }
 
-    let webhookRes: Response;
+    let webhookRes: Response | null = null;
     try {
       webhookRes = await fetch(n8nWebhookUrl, {
         method: 'POST',
@@ -96,23 +96,25 @@ export async function processComplaintIntake(
           'x-webhook-secret': webhookSecret,
         },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(10000),
       });
     } catch (networkErr: unknown) {
       const msg = networkErr instanceof Error ? networkErr.message : 'Network failure';
-      throw new Error(`n8n intake workflow unreachable: ${msg}`);
+      console.warn(`[Orchestrator] n8n intake workflow unreachable (${msg}). Engaging resilient in-app AI triage fallback.`);
     }
 
-    if (!webhookRes.ok) {
-      const errText = await webhookRes.text();
-      throw new Error(`n8n intake workflow returned error HTTP ${webhookRes.status}: ${errText}`);
+    if (webhookRes) {
+      if (!webhookRes.ok) {
+        const errText = await webhookRes.text();
+        console.warn(`[Orchestrator] n8n intake workflow returned error HTTP ${webhookRes.status}: ${errText}. Engaging resilient in-app AI triage fallback.`);
+      } else {
+        const webhookData = await webhookRes.json();
+        if (webhookData?.success && webhookData.ticket && webhookData.ai_extraction && webhookData.priority_breakdown && webhookData.duplicate_check) {
+          return webhookData as IntakeResult;
+        }
+        console.warn('[Orchestrator] n8n intake workflow returned incomplete intake result. Engaging resilient in-app AI triage fallback.');
+      }
     }
-
-    const webhookData = await webhookRes.json();
-    if (!webhookData?.success || !webhookData.ticket || !webhookData.ai_extraction || !webhookData.priority_breakdown || !webhookData.duplicate_check) {
-      throw new Error('n8n intake workflow returned an incomplete intake result.');
-    }
-
-    return webhookData as IntakeResult;
   }
 
   // 3. In-App AI Extraction with Gemini & Schema Validation

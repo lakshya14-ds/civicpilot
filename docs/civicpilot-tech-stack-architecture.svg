@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">CivicPilot tech stack and architecture</title>
+  <desc id="desc">Six cards show CivicPilot's web interfaces, Next.js APIs, n8n orchestration, Gemini and deterministic triage, Supabase data storage, and staff actions. WhatsApp and official municipal integration are marked as future work.</desc>
+  <defs>
+    <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="3" cy="3" r="2.3" fill="#31434d"/>
+      <circle cx="11" cy="11" r="2.3" fill="#31434d"/>
+    </pattern>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#101d24" flood-opacity=".22"/>
+    </filter>
+    <style>
+      .title { font: 82px Georgia, 'Times New Roman', serif; fill: #67d7dc; letter-spacing: -2px; }
+      .num { font: bold 28px Arial, sans-serif; fill: white; text-anchor: middle; dominant-baseline: middle; }
+      .heading { font: bold 29px Arial, sans-serif; fill: #087b84; }
+      .body { font: 25px Arial, sans-serif; fill: #19374b; }
+      .small { font: 20px Arial, sans-serif; fill: #d4e7e9; }
+      .card { fill: #f8faf9; rx: 19; filter: url(#shadow); }
+      .badge { fill: #119ca7; }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="#20313c"/>
+  <rect width="1600" height="900" fill="url(#dots)" opacity=".8"/>
+  <text class="title" x="36" y="111">Tech Stack &amp; Architecture</text>
+
+  <rect class="card" x="36" y="179" width="488" height="286"/>
+  <circle class="badge" cx="91" cy="230" r="34"/><text class="num" x="91" y="231">1</text>
+  <text class="heading" x="137" y="239">Interfaces</text>
+  <text class="body" x="60" y="304">
+    <tspan x="60" dy="0">Next.js 16, React 19, TypeScript,</tspan>
+    <tspan x="60" dy="38">Tailwind CSS 4</tspan>
+    <tspan x="60" dy="44">Citizen reports + private tracking;</tspan>
+    <tspan x="60" dy="38">separate staff review dashboard</tspan>
+  </text>
+
+  <rect class="card" x="556" y="179" width="488" height="286"/>
+  <circle class="badge" cx="611" cy="230" r="34"/><text class="num" x="611" y="231">2</text>
+  <text class="heading" x="657" y="239">Application API</text>
+  <text class="body" x="580" y="304">
+    <tspan x="580" dy="0">Next.js route handlers for intake,</tspan>
+    <tspan x="580" dy="38">tickets, feedback and analytics</tspan>
+    <tspan x="580" dy="44">Ticket codes restrict citizen access;</tspan>
+    <tspan x="580" dy="38">staff secret gates operational APIs</tspan>
+  </text>
+
+  <rect class="card" x="1076" y="179" width="488" height="286"/>
+  <circle class="badge" cx="1131" cy="230" r="34"/><text class="num" x="1131" y="231">3</text>
+  <text class="heading" x="1177" y="239">Orchestration</text>
+  <text class="body" x="1100" y="304">
+    <tspan x="1100" dy="0">n8n intake webhook routes reports</tspan>
+    <tspan x="1100" dy="38">through AI and persistence</tspan>
+    <tspan x="1100" dy="44">Review, feedback and scheduled</tspan>
+    <tspan x="1100" dy="38">SLA workflows are defined</tspan>
+  </text>
+
+  <rect class="card" x="36" y="488" width="488" height="286"/>
+  <circle class="badge" cx="91" cy="539" r="34"/><text class="num" x="91" y="540">4</text>
+  <text class="heading" x="137" y="548">AI + decision rules</text>
+  <text class="body" x="60" y="613">
+    <tspan x="60" dy="0">Google Gemini API classifies</tspan>
+    <tspan x="60" dy="38">English, Hindi and Kannada text</tspan>
+    <tspan x="60" dy="44">PII masking, rule-based fallback,</tspan>
+    <tspan x="60" dy="38">deduplication + priority routing</tspan>
+  </text>
+
+  <rect class="card" x="556" y="488" width="488" height="286"/>
+  <circle class="badge" cx="611" cy="539" r="34"/><text class="num" x="611" y="540">5</text>
+  <text class="heading" x="657" y="548">Data + evidence</text>
+  <text class="body" x="580" y="613">
+    <tspan x="580" dy="0">Supabase PostgreSQL stores</tspan>
+    <tspan x="580" dy="38">tickets, decisions and audit events</tspan>
+    <tspan x="580" dy="44">Private Storage holds photos;</tspan>
+    <tspan x="580" dy="38">row-level policies protect data</tspan>
+  </text>
+
+  <rect class="card" x="1076" y="488" width="488" height="286"/>
+  <circle class="badge" cx="1131" cy="539" r="34"/><text class="num" x="1131" y="540">6</text>
+  <text class="heading" x="1177" y="548">Actions + oversight</text>
+  <text class="body" x="1100" y="613">
+    <tspan x="1100" dy="0">Staff review and pilot queue routing;</tspan>
+    <tspan x="1100" dy="38">SLA escalation and analytics</tspan>
+    <tspan x="1100" dy="44">Citizen feedback can reopen a</tspan>
+    <tspan x="1100" dy="38">report after attempted resolution</tspan>
+  </text>
+
+  <text class="small" x="38" y="834">LOCAL PILOT PATH  ·  Web → Next.js API → n8n intake → Gemini + rules → Supabase → staff review</text>
+  <text class="small" x="38" y="867">FUTURE / NOT LIVE  ·  WhatsApp citizen intake  ·  Official municipal API handoff</text>
+</svg>
